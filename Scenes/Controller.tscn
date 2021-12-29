@@ -1,0 +1,72 @@
+[gd_scene load_steps=2 format=2]
+
+[ext_resource path="res://Scripts/Track.gd" type="Script" id=1]
+
+[node name="Controller" type="Node2D"]
+
+[node name="Track" type="Line2D" parent="."]
+points = PoolVector2Array( 492, 248, 673.22, 220.277, 724.33, 214.575, 770.58, 211.858, 1024.24, 211.858, 1087.43, 236.493, 1113.21, 255.161, 1131.41, 278.037, 1204.95, 530.728, 1208.73, 551.516, 1207.47, 569.785, 1204.32, 594.984, 1195.5, 609.473, 1181.65, 624.592, 1162.12, 630.891, 1141.33, 629.632, 1124.95, 629.632, 1111.72, 632.151, 1098.27, 641.713, 1090.93, 654.83, 1097.86, 668.689, 1112.35, 678.769, 1147.63, 715.306, 1153.93, 739.875, 1154.56, 753.734, 1140.7, 762.553, 1128.54, 764.462, 1116.13, 765.703, 1064.47, 751.214, 1047.42, 741.94, 1024.78, 739.245, 1008.51, 740.904, 983.838, 753.734, 870.571, 775.004, 830.575, 781.735, 793.902, 784.028, 514.476, 780.36, 464.979, 769.753, 423.967, 750.662, 329.63, 696.389, 309.907, 678.554, 295.089, 654.203, 277.102, 566.064, 279.747, 530.925, 292.746, 508.327, 339.472, 476.838, 380.305, 459.621, 427.375, 451.555, 474.167, 453.512, 533.147, 469.444, 662.31, 516.639, 866.741, 541.671, 890.896, 535.688, 911.177, 517.521, 957.846, 434.25, 960.742, 402.346, 943.976, 387.882, 792.864, 344.027, 614.688, 319.801, 457.301, 302.355, 434.648, 290.085, 431.816, 271.207, 446.918, 258.937, 468.627, 251.386, 492, 248 )
+width = 20.0
+default_color = Color( 0.47451, 0.47451, 0.47451, 1 )
+script = ExtResource( 1 )
+
+[node name="Panel" type="Panel" parent="."]
+anchor_right = 1.0
+anchor_bottom = 1.0
+rect_min_size = Vector2( 300, 300 )
+__meta__ = {
+"_edit_use_anchors_": false
+}
+
+[node name="VBoxContainer" type="VBoxContainer" parent="Panel"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+custom_constants/separation = 27
+alignment = 1
+__meta__ = {
+"_edit_use_anchors_": false
+}
+
+[node name="OuterHits" type="Label" parent="Panel/VBoxContainer"]
+visible = false
+margin_top = 68.0
+margin_right = 300.0
+margin_bottom = 82.0
+text = "hits 0"
+__meta__ = {
+"_edit_use_anchors_": false
+}
+
+[node name="Points" type="Label" parent="Panel/VBoxContainer"]
+visible = false
+margin_top = 89.0
+margin_right = 300.0
+margin_bottom = 103.0
+text = "Points"
+
+[node name="Distances" type="Label" parent="Panel/VBoxContainer"]
+visible = false
+margin_top = 109.0
+margin_right = 300.0
+margin_bottom = 123.0
+text = "Distances"
+
+[node name="HSlider" type="HSlider" parent="Panel/VBoxContainer"]
+visible = false
+margin_top = 170.0
+margin_right = 300.0
+margin_bottom = 186.0
+min_value = 1.0
+max_value = 15.0
+step = 0.25
+value = 4.0
+
+[node name="CheckButton" type="CheckButton" parent="Panel/VBoxContainer"]
+margin_top = 130.0
+margin_right = 300.0
+margin_bottom = 170.0
+text = "Proccess"
+expand_icon = true
+__meta__ = {
+"_edit_use_anchors_": false
+}
