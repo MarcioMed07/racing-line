@@ -33,6 +33,8 @@ var outer_segment = []
 var inner_segment = []
 
 var complete_color = Color.gray
+var hit_threshold_entry_exit = 0.05
+var hit_threshold_apex = 1
 
 func _ready():
 	pass
@@ -41,17 +43,21 @@ func _process(delta):
 	var simulate = process_button.pressed
 	if !simulate or outer_segment.size() <=2:
 		return
-	update()
 	
 	if is_complete():
 		complete_color = Color.black
 		return
+	update()
+	for i in range(100):
+		if !is_complete():
+			step()
 #	resolve()
+	pass
+
+func step():
 	if !grow_circle():
 		move_circle()
 	update_hits()
-#	debug()
-	pass
 
 
 func resolve():
@@ -59,7 +65,6 @@ func resolve():
 		if !grow_circle():
 			move_circle()
 		update_hits()
-	complete_color = Color.black
 
 
 func is_complete():
@@ -67,9 +72,10 @@ func is_complete():
 
 
 func update_hits():
-	entry_clipping.hit = entry_clipping.distance - radius <= 0.05
-	exit_clipping.hit = exit_clipping.distance - radius <= 0.05
-	apex_clipping.hit = abs(apex_clipping.distance - radius) <= 1
+	entry_clipping.hit = entry_clipping.distance - radius <= hit_threshold_entry_exit
+	exit_clipping.hit = exit_clipping.distance - radius <= hit_threshold_entry_exit
+	apex_clipping.hit = abs(apex_clipping.distance - radius) <= hit_threshold_apex
+	
 
 
 func grow_circle():
@@ -84,6 +90,10 @@ func move_circle():
 		m_position -= (entry_clipping.point - m_position).normalized() * reposition_factor
 	if exit_clipping.hit:
 		m_position -= (exit_clipping.point - m_position).normalized() * reposition_factor
+#	if exit_clipping.hit && entry_clipping.hit:
+#		radius -= growth_factor *2
+#		m_position -= (exit_clipping.point - m_position).normalized() * reposition_factor*2
+#		m_position -= (entry_clipping.point - m_position).normalized() * reposition_factor*2
 	update_clipping_points()
 
 
@@ -193,5 +203,13 @@ func _draw():
 	if !is_complete():
 		draw_arc(m_position,radius,0,360,3600,complete_color,2)
 	else:
-		draw_arc(m_position,radius,entry_clipping.point.angle_to_point(m_position),exit_clipping.point.angle_to_point(m_position),3600,Color.blue,2)
+		var S = rad2deg(entry_clipping.point.angle_to_point(m_position))
+		var E = rad2deg(exit_clipping.point.angle_to_point(m_position))
+		print(S-E)
+		if S-E > 180:
+			S = S + 360 if S < 0 else S
+			E = E + 360 if E < 0 else E
+		S = deg2rad(S)
+		E = deg2rad(E)
+		draw_arc(m_position,radius,S,E,3600,Color.blue,2)
 	pass

@@ -2,17 +2,33 @@ extends Line2D
 
 onready var circle_scene = preload("res://Scenes/Circle.tscn")
 
-export var curve_min_angle = 4
+export var curve_min_angle = 4.0
+export var growth_speed = 1.0
+export var reposition_speed = 1.0
 
 var centerPoints = []
 var outerPoints = []
 var innerPoints = []
 var segments = []
-
+var circles = []
+var connected_dots = false;
 
 func _ready():
 	centerPoints = points
+	print_track()
 	arrange()
+	pass
+
+
+func _process(delta):
+	if connected_dots:
+		return
+	var acc = true
+	for circle in circles:
+		acc = acc && circle.is_complete()
+	if acc:
+		connected_dots = true
+		update()
 	pass
 
 
@@ -61,7 +77,12 @@ func segment_track():
 		if(is_segmenting and angle <= curve_min_angle):
 			is_segmenting = false
 			segment_end = i
-			var curve_direction =  1 if centerPoints[segment_start].angle_to(centerPoints[segment_end]) >0 else -1
+			var A = centerPoints[segment_start]
+			var B = centerPoints[segment_start+1]
+			var P = centerPoints[segment_end]
+			var AP = A.direction_to(P)
+			var AB = A.direction_to(B)
+			var curve_direction =  1 if AB.angle_to(AP) >= 0 else -1
 			segments.append({start= segment_start,end=segment_end, direction = curve_direction})
 
 
@@ -79,8 +100,10 @@ func arrange():
 	segment_track()
 	for segment in segments:
 		var circle = circle_scene.instance()
+		circle.reposition_factor = reposition_speed
+		circle.growth_factor = growth_speed
 		var updated_success = false
-		if true:
+		if segment.direction > 0:
 			updated_success = circle.update_points(
 				innerPoints.slice(segment.start-1, (segment.end+1)%innerPoints.size()),
 				outerPoints.slice(segment.start-1, (segment.end+1)%outerPoints.size()),
@@ -95,6 +118,7 @@ func arrange():
 		
 		if(updated_success):
 			self.add_child(circle, true)
+			circles.append(circle)
 		else:
 			circle.free()
 	update()
@@ -113,16 +137,34 @@ func _input(event):
 			arrange()
 
 
+func connect_dots():
+	for i in range(circles.size()):
+		var A = circles[i].exit_clipping.point
+		var B = circles[(i+1)%circles.size()].entry_clipping.point
+		draw_line(A,B,Color.blue,2)
+
+
+func print_track():
+	print("[")
+	for point in centerPoints:
+		print("Vector2",point,",")
+	print("]")
+
+
 func _draw():
 	var default_font = Control.new().get_font("font")
 	
 	for i in range(segments.size()):
-		draw_string(default_font, centerPoints[segments[i].start], str(i))
+		draw_string(default_font, centerPoints[segments[i].start], "s-"+str(i))
+		draw_string(default_font, centerPoints[segments[i].end], "e-"+str(i))
 
 	for i in range(outerPoints.size()):
 		if(i < outerPoints.size()-1):
-			draw_line(outerPoints[i], outerPoints[i+1],  Color.green if angle_difference(i) <= curve_min_angle else Color.red, 1)
+			draw_line(outerPoints[i], outerPoints[i+1],  Color.green, 1)
 	for i in range(innerPoints.size()):
 		if(i < innerPoints.size()-1):
-			draw_line(innerPoints[i], innerPoints[i+1],  Color.green if angle_difference(i) <= curve_min_angle else Color.red, 1)
+			draw_line(innerPoints[i], innerPoints[i+1],  Color.green, 1)
+	
+	if connected_dots:
+		connect_dots()
 	pass
