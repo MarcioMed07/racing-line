@@ -5,6 +5,7 @@ onready var circle_scene = preload("res://Scenes/Circle.tscn")
 export var curve_min_angle = 0.04
 export var growth_speed = 0.7
 export var reposition_speed = 0.7
+export var full_solve = false
 
 var centerPoints = []
 var outerPoints = []
@@ -20,6 +21,7 @@ func _ready():
 	var time_start = OS.get_ticks_msec() 
 	resolve_circles()
 	var time_end = OS.get_ticks_msec()
+	print(time_end - time_start, 'ms')
 	pass
 
 
@@ -110,7 +112,9 @@ func spawn_circles():
 				outerPoints.slice(segment.start-1, (segment.end+1)%outerPoints.size()),
 				Color.purple,
 				segment.direction,
-				i
+				i,
+				growth_speed,
+				reposition_speed
 			)
 		else:
 			updated_success = circle.update_points(
@@ -118,7 +122,9 @@ func spawn_circles():
 				innerPoints.slice(segment.start-1, (segment.end+1)%innerPoints.size()),
 				Color.yellow,
 				segment.direction,
-				i
+				i,
+				growth_speed,
+				reposition_speed
 			)
 		
 		if(updated_success):
@@ -133,7 +139,7 @@ func spawn_circles():
 
 func resolve_circles():
 	for circle in circles:
-		circle.resolve()
+		circle.resolve(full_solve)
 
 
 # if the edges of the circles touch, the distance between the centers is r1+r2;
@@ -152,7 +158,7 @@ func check_final_circles_collisions():
 		var distance_from_circle_to_point = A.m_position.distance_to(entry_point)
 		if(distance_from_circle_to_point < A.radius and !B.second_pass):
 			problem = true
-			B.start_second_pass(A.exit_clipping.point)
+			B.start_second_pass(A.exit_clipping.point, full_solve)
 	return problem
 
 

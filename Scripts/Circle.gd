@@ -81,15 +81,15 @@ func second_pass_process():
 
 ##Calculate 1 step of the circle proccess
 func step():
-	cur_itt += 1
-	growth_factor -= cur_itt/10000
-	reposition_factor -= cur_itt/10000
+#	cur_itt += 1
+#	growth_factor -= cur_itt/10000
+#	reposition_factor -= cur_itt/10000
 	if !grow_circle():
 		move_circle()
 	update_hits()
 
 ## Calculate steps until circle proccess is complete
-func resolve(full = true):
+func resolve(full = false):
 	if !full:
 		is_running = true
 		return
@@ -236,20 +236,20 @@ func closest_point_on_line_segment(A,B,C):
 	return A + S*(B-A)
 
 
-func update_points(innerSegment, outerSegment, color, _direction, _index):
+func update_points(innerSegment, outerSegment, color, _direction, _index, growth, reposition):
 	if outerSegment.size() <=2 or innerSegment.size() <= 2:
 		return false
 	index = _index
 	direction = _direction
 	inner_segment = innerSegment
 	outer_segment = outerSegment
-	complete_color = color	
+	complete_color = color
 	m_position = (innerSegment[1] + innerSegment[-2])/2
 	radius = innerSegment[1].distance_to(innerSegment[-2]) 
 	update_clipping_points()
 	return true
 
-func start_second_pass(point, full = true):
+func start_second_pass(point, full = false):
 	second_pass = true
 	second_pass_goal = point
 	radius = 10
