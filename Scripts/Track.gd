@@ -2,9 +2,9 @@ extends Line2D
 
 onready var circle_scene = preload("res://Scenes/Circle.tscn")
 
-export var curve_min_angle = 4.0
-export var growth_speed = 1.0
-export var reposition_speed = 1.0
+export var curve_min_angle = 0.04
+export var growth_speed = 0.7
+export var reposition_speed = 0.7
 
 var centerPoints = []
 var outerPoints = []
@@ -15,8 +15,11 @@ var connected_dots = false;
 
 func _ready():
 	centerPoints = points
-	print_track()
 	arrange()
+	spawn_circles()
+	var time_start = OS.get_ticks_msec() 
+	resolve_circles()
+	var time_end = OS.get_ticks_msec()
 	pass
 
 
@@ -24,43 +27,36 @@ func _process(delta):
 	if connected_dots:
 		return
 	var acc = true
-	for circle in circles:
-		acc = acc && circle.is_complete()
-	if acc:
-		connected_dots = true
-		update()
+	if circles.size() > 0:
+		for circle in circles:
+			acc = acc && circle.is_complete()
+		if acc:
+			if !check_final_circles_collisions():
+				connected_dots = true
+			update()
 	pass
 
 
 func angle_difference(i):
-	var A = centerPoints[(i-1)%centerPoints.size()]
-	var B = centerPoints[i]
-	var C = centerPoints[(i+1)%centerPoints.size()]
-	
+	var A = center_points_at(i)
+	var B = center_points_at(i+1)
+	var C = center_points_at(i+2)
 	
 	var a2 = B.distance_squared_to (C) 
 	var b2 = A.distance_squared_to (C) 
-	var c2 = A.distance_squared_to (B) 
-  
-	# length of sides be a, b, c 
-	var a = sqrt(a2); 
-	var b = sqrt(b2); 
-	var c = sqrt(c2); 
-
-	if(a==0 || b ==0 || c== 0):
+	var c2 = A.distance_squared_to (B)  
+	
+	#TODO: treat in case of first/last point
+	if(a2==0 || b2 ==0 || c2== 0):
 		return 0
-	
+	var a = sqrt(a2)
+	var b = sqrt(b2)
+	var c = sqrt(c2)
 	# From Cosine law 
-	var alpha = acos((b2 + c2 - a2) / (2 * b * c)); 
-	var betta = acos((a2 + c2 - b2) / (2 * a * c)); 
-	var gamma = acos((a2 + b2 - c2) / (2 * a * b)); 
-
-	# Converting to degree 
-	alpha = alpha * 180 / PI; 
-	betta = betta * 180 / PI; 
-	gamma = gamma * 180 / PI;
-	
-	return gamma
+	var alpha = acos((b2+c2-a2)/(2*b*c))
+	var betta = acos((a2+c2-b2)/(2*a*c))
+	var gamma = acos((a2+b2-c2)/(2*a*b))
+	return alpha
 
 
 func segment_track():
@@ -96,9 +92,14 @@ func arrange():
 			var current = centerPoints[i]
 			offset = offset.rotated(previous.direction_to(current).angle())
 		innerPoints[i] = centerPoints[i] + offset
-		outerPoints[i] = centerPoints[i] - offset	
+		outerPoints[i] = centerPoints[i] - offset
 	segment_track()
-	for segment in segments:
+	update()
+	pass
+
+func spawn_circles():
+	for i in range(0,segments.size()):
+		var segment = segments[i]
 		var circle = circle_scene.instance()
 		circle.reposition_factor = reposition_speed
 		circle.growth_factor = growth_speed
@@ -107,34 +108,52 @@ func arrange():
 			updated_success = circle.update_points(
 				innerPoints.slice(segment.start-1, (segment.end+1)%innerPoints.size()),
 				outerPoints.slice(segment.start-1, (segment.end+1)%outerPoints.size()),
-				Color.purple
+				Color.purple,
+				segment.direction,
+				i
 			)
 		else:
 			updated_success = circle.update_points(
 				outerPoints.slice(segment.start-1, (segment.end+1)%innerPoints.size()),
 				innerPoints.slice(segment.start-1, (segment.end+1)%innerPoints.size()),
-				Color.yellow
+				Color.yellow,
+				segment.direction,
+				i
 			)
 		
 		if(updated_success):
+			circle.growth_factor = growth_speed
+			circle.reposition_factor = reposition_speed
 			self.add_child(circle, true)
 			circles.append(circle)
 		else:
 			circle.free()
-	update()
 	pass
 
 
-func _input(event):
-	return
-	if event.is_action_pressed("undo"):
-		centerPoints.pop_back()
-		arrange()
-	if event is InputEventMouseButton:
-		if event.pressed:
-			var point = event.position
-			centerPoints.append(point)
-			arrange()
+func resolve_circles():
+	for circle in circles:
+		circle.resolve()
+
+
+# if the edges of the circles touch, the distance between the centers is r1+r2;
+# any greater distance and the circles don't touch or collide; and
+# any less and then do collide
+func circle_collision(circle_a:Vector2, circle_b:Vector2,radius_a:float, radius_b:float):
+	return pow((circle_a.x-circle_b.x),2) + pow((circle_a.y-circle_b.y),2) <= pow((radius_a - radius_b),2)
+
+
+func check_final_circles_collisions():
+	var problem = false
+	for i in range(circles.size()):
+		var A = circle_at(i)
+		var B = circle_at(i+1)
+		var entry_point = B.entry_clipping.point
+		var distance_from_circle_to_point = A.m_position.distance_to(entry_point)
+		if(distance_from_circle_to_point < A.radius and !B.second_pass):
+			problem = true
+			B.start_second_pass(A.exit_clipping.point)
+	return problem
 
 
 func connect_dots():
@@ -142,6 +161,15 @@ func connect_dots():
 		var A = circles[i].exit_clipping.point
 		var B = circles[(i+1)%circles.size()].entry_clipping.point
 		draw_line(A,B,Color.blue,2)
+		circles[i].update()
+
+
+func circle_at(i) -> Circle:
+	return circles[i%circles.size()]
+
+
+func center_points_at(i):
+	return centerPoints[(i)%centerPoints.size()]
 
 
 func print_track():
@@ -154,9 +182,13 @@ func print_track():
 func _draw():
 	var default_font = Control.new().get_font("font")
 	
+	for i in range(centerPoints.size()):
+		draw_circle(center_points_at(i), 2, Color.black)
 	for i in range(segments.size()):
 		draw_string(default_font, centerPoints[segments[i].start], "s-"+str(i))
+		draw_circle(centerPoints[segments[i].start], 2, Color.green)
 		draw_string(default_font, centerPoints[segments[i].end], "e-"+str(i))
+		draw_circle(centerPoints[segments[i].end], 2, Color.red)
 
 	for i in range(outerPoints.size()):
 		if(i < outerPoints.size()-1):
@@ -164,7 +196,7 @@ func _draw():
 	for i in range(innerPoints.size()):
 		if(i < innerPoints.size()-1):
 			draw_line(innerPoints[i], innerPoints[i+1],  Color.green, 1)
-	
+	draw_line(innerPoints[0], outerPoints[0],  Color.black, 2)
 	if connected_dots:
 		connect_dots()
 	pass

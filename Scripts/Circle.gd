@@ -1,13 +1,19 @@
 extends Node2D
 
+class_name Circle
+
 onready var process_button = $"../../Panel/VBoxContainer/CheckButton"
 
 export var m_position: Vector2
 export var growth_factor = 0.1
 export var reposition_factor:float = 0.1
 export var radius = 10
+export var solve_speed = 1
+var max_itt = 2000000
+var cur_itt = 0
 
-
+var direction = 1
+var index = -1
 var entry_clipping = {
 	distance = INF,
 	hit = false,
@@ -34,66 +40,99 @@ var inner_segment = []
 
 var complete_color = Color.gray
 var hit_threshold_entry_exit = 0.05
-var hit_threshold_apex = 1
+var hit_threshold_apex = 0.05
+
+var is_running = false
+var second_pass = false
+var second_pass_goal = Vector2.ZERO
 
 func _ready():
+	cur_itt = 0
 	pass
 
 func _process(delta):
-	var simulate = process_button.pressed
-	if !simulate or outer_segment.size() <=2:
-		return
-	
-	if is_complete():
-		complete_color = Color.black
-		return
-	update()
-	for i in range(100):
-		if !is_complete():
-			step()
-#	resolve()
+	if is_running:
+		if second_pass == false:
+			first_pass_process()
+		else:
+			second_pass_process()
 	pass
 
+func first_pass_process():
+	if is_complete():
+		is_running = false
+		return
+	if is_running:
+		for i in range(solve_speed):
+			step()
+	update()
+
+func second_pass_process():
+	update_clipping_points()
+	update_hits()
+	if is_complete():
+		is_running = false
+		return
+	if is_running:
+		for i in range(solve_speed):
+			step()
+	update()
+
+
+##Calculate 1 step of the circle proccess
 func step():
+	cur_itt += 1
+	growth_factor -= cur_itt/10000
+	reposition_factor -= cur_itt/10000
 	if !grow_circle():
 		move_circle()
 	update_hits()
 
+## Calculate steps until circle proccess is complete
+func resolve(full = true):
+	if !full:
+		is_running = true
+		return
+	var completed = false
+	while !completed:		
+		if second_pass == false:
+			first_pass_process()
+		else:
+			second_pass_process()
+		completed = is_complete()
+		is_running = !completed
 
-func resolve():
-	while !is_complete():
-		if !grow_circle():
-			move_circle()
-		update_hits()
-
-
+## Circle proccess is complete when the circle hits the outer lines at entry and exit and the apex on the inside line
 func is_complete():
-	return entry_clipping.hit and exit_clipping.hit and apex_clipping.hit
+	return (entry_clipping.hit and exit_clipping.hit and apex_clipping.hit) or cur_itt >= max_itt
 
-
+## Verifies if the circle hit the lines at the clipping points
 func update_hits():
 	entry_clipping.hit = entry_clipping.distance - radius <= hit_threshold_entry_exit
 	exit_clipping.hit = exit_clipping.distance - radius <= hit_threshold_entry_exit
-	apex_clipping.hit = abs(apex_clipping.distance - radius) <= hit_threshold_apex
+	apex_clipping.hit = apex_clipping.distance - radius > hit_threshold_apex
+	if(entry_clipping.hit and exit_clipping.hit):
+		pass
 	
 
-
+## Increases the circle radius if it's not touching the outer lines
 func grow_circle():
-	if entry_clipping.hit or exit_clipping.hit:
+	if (entry_clipping.hit or exit_clipping.hit) and !apex_clipping.hit:
 		return false
 	radius += growth_factor
 	return true
 
-
+## Moves the circle towards the apex 
 func move_circle():
-	if entry_clipping.hit:
-		m_position -= (entry_clipping.point - m_position).normalized() * reposition_factor
-	if exit_clipping.hit:
-		m_position -= (exit_clipping.point - m_position).normalized() * reposition_factor
-#	if exit_clipping.hit && entry_clipping.hit:
-#		radius -= growth_factor *2
-#		m_position -= (exit_clipping.point - m_position).normalized() * reposition_factor*2
-#		m_position -= (entry_clipping.point - m_position).normalized() * reposition_factor*2
+	var moving_dir = Vector2.ZERO
+	if entry_clipping.hit and exit_clipping.hit:
+		moving_dir = (apex_clipping.point - m_position).normalized() * reposition_factor#((entry_clipping.point - m_position) + (exit_clipping.point - m_position)).normalized() * reposition_factor*200
+		radius -= growth_factor
+	elif entry_clipping.hit:
+		moving_dir = (entry_clipping.point - m_position).normalized() * reposition_factor
+	elif exit_clipping.hit:
+		moving_dir = (exit_clipping.point - m_position).normalized() * reposition_factor
+	m_position -= moving_dir
 	update_clipping_points()
 
 
@@ -103,7 +142,7 @@ func get_closest_distances(segment,points,distances,indexes,ammount, reverse = f
 			var A = segment[j]
 			var B = segment[j+1]
 			var C = m_position
-			var point = point(A,B,C)
+			var point = closest_point_on_line_segment(A,B,C)
 			var cur_distance = point.distance_to(m_position)
 			if (cur_distance < distances[i] if !reverse else cur_distance > distances[i]) and !indexes.has(j):
 				distances[i] = cur_distance
@@ -119,6 +158,14 @@ func update_clipping_points():
 
 
 func update_entry_clipping():
+	if second_pass:
+		entry_clipping = {
+			distance = second_pass_goal.distance_to(m_position),
+			hit = false,
+			point = second_pass_goal,
+			index = -1,
+		}
+		return
 	entry_clipping = {
 		distance = INF,
 		hit = false,
@@ -129,7 +176,7 @@ func update_entry_clipping():
 		var A = outer_segment[i]
 		var B = outer_segment[i+1]
 		var C = m_position
-		var point = point(A,B,C)
+		var point = closest_point_on_line_segment(A,B,C)
 		var cur_distance = point.distance_to(m_position)
 		if cur_distance < entry_clipping.distance:
 			entry_clipping.distance = cur_distance
@@ -149,7 +196,7 @@ func update_exit_clipping():
 		var A = outer_segment[i]
 		var B = outer_segment[i+1]
 		var C = m_position
-		var point = point(A,B,C)
+		var point = closest_point_on_line_segment(A,B,C)
 		var cur_distance = point.distance_to(m_position)
 		if cur_distance < exit_clipping.distance:
 			exit_clipping.distance = cur_distance
@@ -169,7 +216,7 @@ func update_apex_clipping():
 		var A = inner_segment[i]
 		var B = inner_segment[i+1]
 		var C = m_position
-		var point = point(A,B,C)
+		var point = closest_point_on_line_segment(A,B,C)
 		var cur_distance = m_position.distance_to(point)
 		if cur_distance > apex_clipping.distance:
 			apex_clipping.distance = cur_distance
@@ -178,7 +225,9 @@ func update_apex_clipping():
 	pass
 
 
-func point(A,B,C):
+func closest_point_on_line_segment(A,B,C):
+	if((B-A).dot(B-A) == 0):
+		return A
 	var S = (C-A).dot(B-A) / (B-A).dot(B-A)
 	if S <= 0:
 		return A
@@ -187,29 +236,42 @@ func point(A,B,C):
 	return A + S*(B-A)
 
 
-func update_points(innerSegment, outerSegment, color):
+func update_points(innerSegment, outerSegment, color, _direction, _index):
 	if outerSegment.size() <=2 or innerSegment.size() <= 2:
 		return false
+	index = _index
+	direction = _direction
 	inner_segment = innerSegment
 	outer_segment = outerSegment
-	complete_color = color
-	m_position = (inner_segment[inner_segment.size()/2] + inner_segment[inner_segment.size()/2+1])/2	
+	complete_color = color	
+	m_position = (innerSegment[1] + innerSegment[-2])/2
+	radius = innerSegment[1].distance_to(innerSegment[-2]) 
 	update_clipping_points()
 	return true
 
-
+func start_second_pass(point, full = true):
+	second_pass = true
+	second_pass_goal = point
+	radius = 10
+	m_position = (exit_clipping.point + second_pass_goal)/2	
+	resolve(full)
 
 func _draw():
-	if !is_complete():
+	if is_running:
 		draw_arc(m_position,radius,0,360,3600,complete_color,2)
+	if !is_complete():
+		pass
 	else:
-		var S = rad2deg(entry_clipping.point.angle_to_point(m_position))
-		var E = rad2deg(exit_clipping.point.angle_to_point(m_position))
-		print(S-E)
-		if S-E > 180:
-			S = S + 360 if S < 0 else S
-			E = E + 360 if E < 0 else E
-		S = deg2rad(S)
-		E = deg2rad(E)
-		draw_arc(m_position,radius,S,E,3600,Color.blue,2)
+		var angle_from = rad2deg(entry_clipping.point.angle_to_point(m_position))
+		var angle_to = rad2deg(exit_clipping.point.angle_to_point(m_position))
+		if(angle_from < 0):
+			angle_from += 360
+		if(angle_to < 0):
+			angle_to += 360
+		if(angle_to < angle_from):
+			angle_to += 360
+		if direction > 0:
+			draw_arc(m_position,radius,deg2rad(angle_from),deg2rad(angle_to),360,Color.blue,2)
+		else:
+			draw_arc(m_position,radius,deg2rad(angle_to),deg2rad(angle_from+360),360,Color.blue,2)
 	pass
