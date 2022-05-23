@@ -15,6 +15,8 @@ var circles = []
 var connected_dots = false;
 
 func _ready():
+	if !visible:
+		return
 	centerPoints = points
 	arrange()
 	spawn_circles()
@@ -26,6 +28,8 @@ func _ready():
 
 
 func _process(delta):
+	if !visible:
+		return
 	if connected_dots:
 		return
 	var acc = true
@@ -89,7 +93,7 @@ func arrange():
 	outerPoints.resize(centerPoints.size())
 	for i in range(centerPoints.size()):
 		var offset = Vector2(0,width/2)
-		if centerPoints.size() > 1 and i != 0:
+		if centerPoints.size() > 1 :#and i != 0:
 			var previous = centerPoints[i-1]
 			var current = centerPoints[i]
 			offset = offset.rotated(previous.direction_to(current).angle())
@@ -105,11 +109,14 @@ func spawn_circles():
 		var circle = circle_scene.instance()
 		circle.reposition_factor = reposition_speed
 		circle.growth_factor = growth_speed
+		var segment_trailling = 1
 		var updated_success = false
+		var start = segment.start-segment_trailling
+		var end = (segment.end+segment_trailling)%innerPoints.size()
 		if segment.direction > 0:
 			updated_success = circle.update_points(
-				innerPoints.slice(segment.start-1, (segment.end+1)%innerPoints.size()),
-				outerPoints.slice(segment.start-1, (segment.end+1)%outerPoints.size()),
+				innerPoints.slice(start, end),
+				outerPoints.slice(start, end),
 				Color.purple,
 				segment.direction,
 				i,
@@ -118,8 +125,8 @@ func spawn_circles():
 			)
 		else:
 			updated_success = circle.update_points(
-				outerPoints.slice(segment.start-1, (segment.end+1)%innerPoints.size()),
-				innerPoints.slice(segment.start-1, (segment.end+1)%innerPoints.size()),
+				outerPoints.slice(start, end),
+				innerPoints.slice(start, end),
 				Color.yellow,
 				segment.direction,
 				i,
@@ -198,10 +205,10 @@ func _draw():
 
 	for i in range(outerPoints.size()):
 		if(i < outerPoints.size()-1):
-			draw_line(outerPoints[i], outerPoints[i+1],  Color.green, 1)
+			draw_line(outerPoints[i], outerPoints[i+1],  Color.black, 2)
 	for i in range(innerPoints.size()):
 		if(i < innerPoints.size()-1):
-			draw_line(innerPoints[i], innerPoints[i+1],  Color.green, 1)
+			draw_line(innerPoints[i], innerPoints[i+1],  Color.black, 2)
 	draw_line(innerPoints[0], outerPoints[0],  Color.black, 2)
 	if connected_dots:
 		connect_dots()

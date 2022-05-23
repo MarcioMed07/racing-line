@@ -8,9 +8,10 @@ export var m_position: Vector2
 export var growth_factor = 0.1
 export var reposition_factor:float = 0.1
 export var radius = 10
-export var solve_speed = 1
-var max_itt = 2000000
+export var solve_speed = 10
+
 var cur_itt = 0
+var max_itt = 15000
 
 var direction = 1
 var index = -1
@@ -39,8 +40,9 @@ var outer_segment = []
 var inner_segment = []
 
 var complete_color = Color.gray
-var hit_threshold_entry_exit = 0.05
+var hit_threshold_entry_exit = 0.35
 var hit_threshold_apex = 0.05
+var completed = false
 
 var is_running = false
 var second_pass = false
@@ -49,6 +51,9 @@ var second_pass_goal = Vector2.ZERO
 func _ready():
 	cur_itt = 0
 	pass
+
+func _physics_process(delta):
+	update()
 
 func _process(delta):
 	if is_running:
@@ -65,28 +70,22 @@ func first_pass_process():
 	if is_running:
 		for i in range(solve_speed):
 			step()
-	update()
 
 func second_pass_process():
-	update_clipping_points()
-	update_hits()
 	if is_complete():
 		is_running = false
 		return
 	if is_running:
 		for i in range(solve_speed):
 			step()
-	update()
 
 
 ##Calculate 1 step of the circle proccess
 func step():
-#	cur_itt += 1
-#	growth_factor -= cur_itt/10000
-#	reposition_factor -= cur_itt/10000
 	if !grow_circle():
 		move_circle()
 	update_hits()
+	cur_itt += 1
 
 ## Calculate steps until circle proccess is complete
 func resolve(full = false):
@@ -104,20 +103,26 @@ func resolve(full = false):
 
 ## Circle proccess is complete when the circle hits the outer lines at entry and exit and the apex on the inside line
 func is_complete():
-	return (entry_clipping.hit and exit_clipping.hit and apex_clipping.hit) or cur_itt >= max_itt
+	if completed:
+		return true
+	if (entry_clipping.hit and exit_clipping.hit and apex_clipping.hit):
+		completed = true
+		return true
+#	if( cur_itt > max_itt ) or (second_pass and (cur_itt > 600)):
+#		completed = true
+#		return true
+	return false
 
 ## Verifies if the circle hit the lines at the clipping points
 func update_hits():
-	entry_clipping.hit = entry_clipping.distance - radius <= hit_threshold_entry_exit
-	exit_clipping.hit = exit_clipping.distance - radius <= hit_threshold_entry_exit
+	entry_clipping.hit = entry_clipping.distance - growth_factor *2 < radius
+	exit_clipping.hit = exit_clipping.distance  - growth_factor *2 < radius
 	apex_clipping.hit = apex_clipping.distance - radius > hit_threshold_apex
-	if(entry_clipping.hit and exit_clipping.hit):
-		pass
-	
+
 
 ## Increases the circle radius if it's not touching the outer lines
 func grow_circle():
-	if (entry_clipping.hit or exit_clipping.hit) and !apex_clipping.hit:
+	if (entry_clipping.hit or exit_clipping.hit) and (second_pass or !apex_clipping.hit):
 		return false
 	radius += growth_factor
 	return true
@@ -133,6 +138,7 @@ func move_circle():
 	elif exit_clipping.hit:
 		moving_dir = (exit_clipping.point - m_position).normalized() * reposition_factor
 	m_position -= moving_dir
+	radius -= growth_factor
 	update_clipping_points()
 
 
@@ -250,14 +256,24 @@ func update_points(innerSegment, outerSegment, color, _direction, _index, growth
 	return true
 
 func start_second_pass(point, full = false):
+	solve_speed = 1
+	completed = false
 	second_pass = true
 	second_pass_goal = point
-	radius = 10
-	m_position = (exit_clipping.point + second_pass_goal)/2	
+	radius = 1
+	cur_itt = 0
+	m_position = (exit_clipping.point + second_pass_goal)/2
+	update_clipping_points()
+	update_hits()
 	resolve(full)
 
 func _draw():
+	var default_font = Control.new().get_font("font")
+#	if second_pass:
+#		draw_circle(exit_clipping.point, 4, Color.chocolate)
+#		draw_circle(entry_clipping.point, 4, Color.pink)
 	if is_running:
+		draw_string(default_font, apex_clipping.point, str(cur_itt))
 		draw_arc(m_position,radius,0,360,3600,complete_color,2)
 	if !is_complete():
 		pass
