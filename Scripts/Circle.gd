@@ -48,6 +48,8 @@ var is_running = false
 var second_pass = false
 var second_pass_goal = Vector2.ZERO
 
+var default_font = Control.new().get_font("font")
+
 func _ready():
 	cur_itt = 0
 	pass
@@ -64,19 +66,19 @@ func _process(delta):
 	pass
 
 func first_pass_process():
-	if is_complete():
-		is_running = false
-		return
 	if is_running:
 		for i in range(solve_speed):
+			if is_complete():
+				is_running = false
+				return
 			step()
 
 func second_pass_process():
-	if is_complete():
-		is_running = false
-		return
 	if is_running:
 		for i in range(solve_speed):
+			if is_complete():
+				is_running = false
+				return
 			step()
 
 
@@ -108,16 +110,16 @@ func is_complete():
 	if (entry_clipping.hit and exit_clipping.hit and apex_clipping.hit):
 		completed = true
 		return true
-#	if( cur_itt > max_itt ) or (second_pass and (cur_itt > 600)):
-#		completed = true
-#		return true
+	if( cur_itt > max_itt ):
+		completed = true
+		return true
 	return false
 
 ## Verifies if the circle hit the lines at the clipping points
 func update_hits():
 	entry_clipping.hit = entry_clipping.distance - growth_factor *2 < radius
 	exit_clipping.hit = exit_clipping.distance  - growth_factor *2 < radius
-	apex_clipping.hit = apex_clipping.distance - radius > hit_threshold_apex
+	apex_clipping.hit = apex_clipping.distance  > radius - growth_factor * 2
 
 
 ## Increases the circle radius if it's not touching the outer lines
@@ -131,14 +133,12 @@ func grow_circle():
 func move_circle():
 	var moving_dir = Vector2.ZERO
 	if entry_clipping.hit and exit_clipping.hit:
-		moving_dir = (apex_clipping.point - m_position).normalized() * reposition_factor#((entry_clipping.point - m_position) + (exit_clipping.point - m_position)).normalized() * reposition_factor*200
-		radius -= growth_factor
+		moving_dir = (apex_clipping.point - m_position).normalized() * reposition_factor
 	elif entry_clipping.hit:
 		moving_dir = (entry_clipping.point - m_position).normalized() * reposition_factor
 	elif exit_clipping.hit:
 		moving_dir = (exit_clipping.point - m_position).normalized() * reposition_factor
 	m_position -= moving_dir
-	radius -= growth_factor
 	update_clipping_points()
 
 
@@ -251,12 +251,12 @@ func update_points(innerSegment, outerSegment, color, _direction, _index, growth
 	outer_segment = outerSegment
 	complete_color = color
 	m_position = (innerSegment[1] + innerSegment[-2])/2
-	radius = innerSegment[1].distance_to(innerSegment[-2]) 
+	radius = 1#innerSegment[1].distance_to(innerSegment[-2]) 
 	update_clipping_points()
 	return true
 
 func start_second_pass(point, full = false):
-	solve_speed = 1
+	
 	completed = false
 	second_pass = true
 	second_pass_goal = point
@@ -268,26 +268,9 @@ func start_second_pass(point, full = false):
 	resolve(full)
 
 func _draw():
-	var default_font = Control.new().get_font("font")
 #	if second_pass:
 #		draw_circle(exit_clipping.point, 4, Color.chocolate)
 #		draw_circle(entry_clipping.point, 4, Color.pink)
 	if is_running:
-		draw_string(default_font, apex_clipping.point, str(cur_itt))
+#		draw_string(default_font, apex_clipping.point, str(cur_itt))
 		draw_arc(m_position,radius,0,360,3600,complete_color,2)
-	if !is_complete():
-		pass
-	else:
-		var angle_from = rad2deg(entry_clipping.point.angle_to_point(m_position))
-		var angle_to = rad2deg(exit_clipping.point.angle_to_point(m_position))
-		if(angle_from < 0):
-			angle_from += 360
-		if(angle_to < 0):
-			angle_to += 360
-		if(angle_to < angle_from):
-			angle_to += 360
-		if direction > 0:
-			draw_arc(m_position,radius,deg2rad(angle_from),deg2rad(angle_to),360,Color.blue,2)
-		else:
-			draw_arc(m_position,radius,deg2rad(angle_to),deg2rad(angle_from+360),360,Color.blue,2)
-	pass

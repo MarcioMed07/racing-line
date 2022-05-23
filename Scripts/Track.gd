@@ -7,12 +7,21 @@ export var growth_speed = 0.7
 export var reposition_speed = 0.7
 export var full_solve = false
 
+export var racing_line_width = 1
+export var racing_line_color = Color.blue
+export var show_center_points = true
+export var show_curve_definitions = true
+export var track_border_width = 1
+export var track_border_color = Color.black
+
 var centerPoints = []
 var outerPoints = []
 var innerPoints = []
 var segments = []
 var circles = []
 var connected_dots = false;
+
+var default_font = Control.new().get_font("font")
 
 func _ready():
 	if !visible:
@@ -173,9 +182,24 @@ func connect_dots():
 	for i in range(circles.size()):
 		var A = circles[i].exit_clipping.point
 		var B = circles[(i+1)%circles.size()].entry_clipping.point
-		draw_line(A,B,Color.blue,2)
+		draw_line(A,B,racing_line_color,racing_line_width)
 		circles[i].update()
 
+func draw_curves():
+	for circle in circles:
+		if circle.completed:
+			var angle_from = rad2deg(circle.entry_clipping.point.angle_to_point(circle.m_position))
+			var angle_to = rad2deg(circle.exit_clipping.point.angle_to_point(circle.m_position))
+			if(angle_from < 0):
+				angle_from += 360
+			if(angle_to < 0):
+				angle_to += 360
+			if(angle_to < angle_from):
+				angle_to += 360
+			if circle.direction > 0:
+				draw_arc(circle.m_position,circle.radius,deg2rad(angle_from),deg2rad(angle_to),360,racing_line_color,racing_line_width)
+			else:
+				draw_arc(circle.m_position,circle.radius,deg2rad(angle_to),deg2rad(angle_from+360),360,racing_line_color,racing_line_width)
 
 func circle_at(i) -> Circle:
 	return circles[i%circles.size()]
@@ -193,23 +217,26 @@ func print_track():
 
 
 func _draw():
-	var default_font = Control.new().get_font("font")
 	
-	for i in range(centerPoints.size()):
-		draw_circle(center_points_at(i), 2, Color.black)
-	for i in range(segments.size()):
-		draw_string(default_font, centerPoints[segments[i].start], "s-"+str(i))
-		draw_circle(centerPoints[segments[i].start], 2, Color.green)
-		draw_string(default_font, centerPoints[segments[i].end], "e-"+str(i))
-		draw_circle(centerPoints[segments[i].end], 2, Color.red)
+	if show_center_points:
+		for i in range(centerPoints.size()):
+			draw_circle(center_points_at(i), 2, Color.black)
+	
+	if show_curve_definitions:
+		for i in range(segments.size()):
+			draw_string(default_font, centerPoints[segments[i].start], "s-"+str(i))
+			draw_circle(centerPoints[segments[i].start], 2, Color.green)
+			draw_string(default_font, centerPoints[segments[i].end], "e-"+str(i))
+			draw_circle(centerPoints[segments[i].end], 2, Color.red)
 
 	for i in range(outerPoints.size()):
 		if(i < outerPoints.size()-1):
-			draw_line(outerPoints[i], outerPoints[i+1],  Color.black, 2)
+			draw_line(outerPoints[i], outerPoints[i+1],  track_border_color, track_border_width)
 	for i in range(innerPoints.size()):
 		if(i < innerPoints.size()-1):
-			draw_line(innerPoints[i], innerPoints[i+1],  Color.black, 2)
+			draw_line(innerPoints[i], innerPoints[i+1],  track_border_color, track_border_width)
 	draw_line(innerPoints[0], outerPoints[0],  Color.black, 2)
+	draw_curves()
 	if connected_dots:
 		connect_dots()
 	pass

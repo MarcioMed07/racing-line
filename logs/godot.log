@@ -29,4 +29,20 @@ OpenGL ES 3.0 Renderer: Radeon RX 580 Series
    At: scene/main/node.cpp:1381:get_node() - Condition "!node" is true. Returned: __null
 **ERROR**: Node not found: ../../Panel/VBoxContainer/CheckButton.
    At: scene/main/node.cpp:1381:get_node() - Condition "!node" is true. Returned: __null
-213ms
+**ERROR**: Node not found: ../../Panel/VBoxContainer/CheckButton.
+   At: scene/main/node.cpp:1381:get_node() - Condition "!node" is true. Returned: __null
+**ERROR**: Node not found: ../../Panel/VBoxContainer/CheckButton.
+   At: scene/main/node.cpp:1381:get_node() - Condition "!node" is true. Returned: __null
+**ERROR**: Node not found: ../../Panel/VBoxContainer/CheckButton.
+   At: scene/main/node.cpp:1381:get_node() - Condition "!node" is true. Returned: __null
+**ERROR**: Node not found: ../../Panel/VBoxContainer/CheckButton.
+   At: scene/main/node.cpp:1381:get_node() - Condition "!node" is true. Returned: __null
+**ERROR**: Node not found: ../../Panel/VBoxContainer/CheckButton.
+   At: scene/main/node.cpp:1381:get_node() - Condition "!node" is true. Returned: __null
+**ERROR**: Node not found: ../../Panel/VBoxContainer/CheckButton.
+   At: scene/main/node.cpp:1381:get_node() - Condition "!node" is true. Returned: __null
+**ERROR**: Node not found: ../../Panel/VBoxContainer/CheckButton.
+   At: scene/main/node.cpp:1381:get_node() - Condition "!node" is true. Returned: __null
+4728ms
+**WARNING**: ObjectDB instances leaked at exit (run with --verbose for details).
+   At: core/object.cpp:2135:cleanup() - ObjectDB instances leaked at exit (run with --verbose for details).
