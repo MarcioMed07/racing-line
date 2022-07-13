@@ -13,6 +13,7 @@ export var show_center_points = true
 export var show_curve_definitions = true
 export var track_border_width = 1
 export var track_border_color = Color.black
+export var connect_dots = false
 
 var centerPoints = []
 var outerPoints = []
@@ -22,6 +23,12 @@ var segments = []
 var circles = []
 var connected_dots = false;
 var solve_speed = 1;
+var track_length = 0
+var completed = false
+
+var car_distance = 0
+var car_speed = 3
+var car_position = Vector2.ZERO
 
 var default_font = Control.new().get_font("font")
 
@@ -41,9 +48,20 @@ func _ready():
 func _process(delta):	
 	if !visible:
 		return
+	if !completed:
+		track_process()
+		return
+	car_distance += car_speed
+	if(car_distance >= track_length):
+		car_distance = 0
+	car_position = get_point_at_distance(car_distance)
+	update()
+	pass
+
+
+func track_process():
 	if connected_dots:
 		return
-	
 	if solve_speed != $"../Control/Panel/VBoxContainer/HBoxContainer/SpinBox".value :
 		solve_speed = $"../Control/Panel/VBoxContainer/HBoxContainer/SpinBox".value
 		for circle in circles:
@@ -58,8 +76,6 @@ func _process(delta):
 				completed()
 				connected_dots = true
 			update()
-			
-	pass
 
 
 func angle_difference(i):
@@ -167,6 +183,7 @@ func spawn_circles():
 func resolve_circles():
 	for circle in circles:
 		circle.resolve(full_solve)
+	
 
 
 # if the edges of the circles touch, the distance between the centers is r1+r2;
@@ -183,7 +200,7 @@ func check_final_circles_collisions():
 		var B = circle_at(i+1)
 		var entry_point = B.entry_clipping.point
 		var distance_from_circle_to_point = A.m_position.distance_to(entry_point)
-		if(distance_from_circle_to_point < A.radius):
+		if(distance_from_circle_to_point < A.radius and !B.second_pass):
 			problem = true
 			B.start_second_pass(A.exit_clipping.point, full_solve)
 	return problem
@@ -223,79 +240,59 @@ func completed():
 		if(angle_to < angle_from):
 			angle_to += 360
 		if circle.direction > 0:
-			append_points_to_racing_line(deg2rad(angle_from), deg2rad(angle_to), circle.radius, circle.m_position,circle.direction)
+			append_points_to_racing_line(deg2rad(angle_from), deg2rad(angle_to), circle.radius, circle.m_position,circle.direction,circle.entry_clipping.point.distance_to(circle.exit_clipping.point)/10)
 		else:
-			append_points_to_racing_line(deg2rad(angle_to), deg2rad(angle_from+360), circle.radius, circle.m_position,circle.direction)
-#		
+			append_points_to_racing_line(deg2rad(angle_to), deg2rad(angle_from+360), circle.radius, circle.m_position,circle.direction,circle.entry_clipping.point.distance_to(circle.exit_clipping.point)/10)
+	
+	for i in range(racingLinePoints.size()):
+		track_length += racingLinePoints[i-1].distance_to(racingLinePoints[i])
+		pass
+	
+	completed = true
 
-func append_points_to_racing_line(a,b,r,center,direction):
+func get_point_at_distance(distance):
+	var curr_distance = 0
+	var last_distance = 0
+	var curr_segment = -1
+	var segment_distance = 0
+	for i in range(racingLinePoints.size()):
+		segment_distance = racingLinePoints[i].distance_to(racingLinePoints[(i+1)%racingLinePoints.size()])
+		curr_distance += segment_distance
+		if curr_distance >= distance:
+			segment_distance = distance-last_distance
+			curr_segment = (i+1)%racingLinePoints.size()
+			print({'curr_distance':curr_distance,'distance':distance})
+			break
+		pass
+		last_distance = curr_distance
+	print({'distance':distance,'curr_segment':curr_segment,'segment_distance':segment_distance})
+	var direction = racingLinePoints[curr_segment-1].direction_to(racingLinePoints[curr_segment])
+	return racingLinePoints[curr_segment-1] + direction * segment_distance
+
+
+func append_points_to_racing_line(a,b,r,center,direction,points_between):
+	points_between = floor(points_between)
+	points_between = max(points_between,10)
 	var local_points = []
-	var points_between = 360	
-	for j in range(points_between):
+	for j in range(1,points_between):
 		var anglePoint = a + j*(b-a)/points_between
 		var curr_point = Vector2(cos(anglePoint),sin(anglePoint)) * r + center
 		local_points.append(curr_point)
 	if direction > 0:
-		var curr_point = Vector2(cos(a),sin(a)) * r + center
-		racingLinePoints.append(curr_point)
 		racingLinePoints += local_points
-		curr_point = Vector2(cos(b),sin(b)) * r + center
-		racingLinePoints.append(curr_point)
 	else:
-		var curr_point = Vector2(cos(b),sin(b)) * r + center
-		racingLinePoints.append(curr_point)
 		var local_points_inv = local_points.duplicate()
 		local_points_inv.invert()
 		racingLinePoints += local_points_inv
-		curr_point = Vector2(cos(a),sin(a)) * r + center
-		racingLinePoints.append(curr_point)
+
 	
 
 func draw_racing_line():
 	for i in range(racingLinePoints.size()):
-		draw_line(racingLinePoints[i-1],racingLinePoints[i],racing_line_color,racing_line_width)
+		if connect_dots:
+			draw_line(racingLinePoints[i-1],racingLinePoints[i],racing_line_color,racing_line_width)
+		draw_circle(racingLinePoints[i],racing_line_width*0.8,racing_line_color)
 
-func connect_dots():
-	for i in range(circles.size()):
-		var circles_collided = check_circles_out_collision(i,i+1)
-		if !circles_collided:
-			var A = circle_at(i).exit_clipping.point
-			var B = circle_at(i+1).entry_clipping.point
-			draw_line(A,B,racing_line_color,racing_line_width)
-
-func draw_curves():
-	var new_angles = []
-	for i in range(circles.size()):
-		new_angles.append({angle_to=null, angle_from=null})
-	
-	for i in range(circles.size()):
-		var circles_collided = check_circles_out_collision(i,i+1)
-		var circle = circle_at(i)
-		if circles_collided:
-				var center_point = (circle_at(i+1).entry_clipping.point + circle_at(i).exit_clipping.point)/2
-				var magic = circle_at(i).m_position + (center_point - circle_at(i).m_position).normalized()*circle_at(i).radius
-				new_angles[i].angle_to = rad2deg(magic.angle_to_point(circle.m_position))
-				new_angles[(i+1)%centerPoints.size()].angle_from = rad2deg(magic.angle_to_point(circle_at(i+1).m_position))
-	
-	for i in range(circles.size()):
-		var circle = circle_at(i)
-		if circle.completed:
-			var angle_from = rad2deg(circle.entry_clipping.point.angle_to_point(circle.m_position))
-			var angle_to = rad2deg(circle.exit_clipping.point.angle_to_point(circle.m_position))
-			if(new_angles[i].angle_to != null):
-				angle_to = new_angles[i].angle_to
-			if(new_angles[i].angle_from != null):
-				angle_from = new_angles[i].angle_from 
-			if(angle_from < 0):
-				angle_from += 360
-			if(angle_to < 0):
-				angle_to += 360
-			if(angle_to < angle_from):
-				angle_to += 360
-			if circle.direction > 0:
-				draw_arc(circle.m_position,circle.radius,deg2rad(angle_from),deg2rad(angle_to),360,racing_line_color,racing_line_width)
-			else:
-				draw_arc(circle.m_position,circle.radius,deg2rad(angle_to),deg2rad(angle_from+360),360,racing_line_color,racing_line_width)
 
 func circle_at(i) -> Circle:
 	return circles[i%circles.size()]
@@ -313,6 +310,7 @@ func print_track():
 
 
 func _draw():
+
 	
 	if show_center_points:
 		for i in range(centerPoints.size()):
@@ -336,4 +334,7 @@ func _draw():
 		draw_racing_line()
 #		draw_curves()
 #		connect_dots()
+	if completed:
+		draw_circle(car_position, 5, Color.black)
+		draw_circle(car_position, 4, Color.purple)
 	pass
