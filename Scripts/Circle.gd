@@ -58,39 +58,21 @@ func _ready():
 	cur_itt = 0
 	pass
 
-func _physics_process(delta):
-	update()
-
 func _process(delta):
 	if is_running:
-		if second_pass == false:
-			first_pass_process()
-		else:
-			second_pass_process()
+		for i in range(solve_speed):
+			if is_complete():
+				is_running = false
+				update()
+				return
+			step()
+		update()
 	pass
-
-func first_pass_process():
-	if is_running:
-		for i in range(solve_speed):
-			if is_complete():
-				is_running = false
-				update()
-				return
-			step()
-
-func second_pass_process():
-	if is_running:
-		for i in range(solve_speed):
-			if is_complete():
-				is_running = false
-				update()
-				return
-			step()
 
 
 ##Calculate 1 step of the circle proccess
 func step():
-	if(cur_itt > max_itt and is_running):
+	if(cur_itt > max_itt):
 		completed = true
 		return
 	if !grow_circle():
@@ -99,54 +81,15 @@ func step():
 	update_hits()
 	cur_itt += 1
 
-## Calculate steps until circle proccess is complete
-func resolve(full = false):
-	if !full:
-		is_running = true
-		return
-	var completed = false
-	while !completed:		
-		if second_pass == false:
-			first_pass_process()
-		else:
-			second_pass_process()
-		completed = is_complete()
-		is_running = !completed
-
-## Circle proccess is complete when the circle hits the outer lines at entry and exit and the apex on the inside line
-func is_complete():
-	if completed:
-		return true
-	if (entry_clipping.hit and exit_clipping.hit):
-		if(apex_clipping.hit >= -3):
-			completed = true
-			return true
-	return false
-
-## Verifies if the circle hit the lines at the clipping points
-func update_hits():
-	var outer_threshold = 0.5
-	var apex = (apex_clipping.distance - radius )
-	var minDistance = apex
-	for i in range(inner_segment.size()):
-		if m_position.distance_to(inner_segment[i]) < minDistance:
-			minDistance = m_position.distance_to(inner_segment[i])
-		pass
-	var entry = entry_clipping.distance - radius
-	var exit = exit_clipping.distance - radius
-	entry_clipping.hit = entry < outer_threshold
-	exit_clipping.hit = exit < outer_threshold
-	apex_clipping.hit = minDistance 
-
-
 
 ## Increases the circle radius if it's not touching the outer lines
 func grow_circle():
-	if (entry_clipping.hit or exit_clipping.hit) :
-		radius -= (float(cur_itt)/max_itt)
+	if (entry_clipping.hit or exit_clipping.hit):
+		radius -= growth_factor + (float(cur_itt)/max_itt * 10)
 		return false
 	radius += growth_factor
 	return true
+
 
 ## Moves the circle towards the apex 
 func move_circle():
@@ -158,8 +101,44 @@ func move_circle():
 		moving_dir = (entry_clipping.point - m_position).normalized() * reposition_factor
 	elif exit_clipping.hit:
 		moving_dir = (exit_clipping.point - m_position).normalized() * reposition_factor
+#	var entry = entry_clipping.distance - radius
+#	var exit = exit_clipping.distance - radius
+#	if entry + exit <= 1:
+#		moving_dir = -(apex_clipping.point - m_position).normalized() * reposition_factor * 10
+#	elif entry_clipping.hit:
+#		moving_dir = (entry_clipping.point - m_position).normalized() * reposition_factor
+#	elif exit_clipping.hit:
+#		moving_dir = (exit_clipping.point - m_position).normalized() * reposition_factor
 	m_position -= moving_dir
 
+
+## Verifies if the circle hit the lines at the clipping points
+func update_hits():
+	var outer_threshold = 0.5
+	var inner_threshold = 0.5
+	var apex = apex_clipping.distance - radius
+	var entry = entry_clipping.distance - radius
+	var exit = exit_clipping.distance - radius
+	entry_clipping.hit = entry < outer_threshold
+	exit_clipping.hit = exit < outer_threshold
+	apex_clipping.hit = apex < inner_threshold+1 and apex > inner_threshold-1
+
+
+## Calculate steps until circle proccess is complete
+func resolve(full = false):
+	if !full:
+		is_running = true
+		return
+	var completed = false
+	while !completed:		
+		step()
+		completed = is_complete()
+		is_running = !completed
+
+
+## Circle proccess is complete when the circle hits the outer lines at entry and exit and the apex on the inside line
+func is_complete():
+	return true if (entry_clipping.hit and exit_clipping.hit and apex_clipping.hit) or completed else false
 
 
 func get_closest_distances(segment,points,distances,indexes,ammount, reverse = false):
@@ -306,3 +285,4 @@ func _draw():
 		draw_string(default_font, apex_clipping.point, str(cur_itt))
 		draw_arc(m_position,radius,0,360,3600,complete_color,2)
 		draw_circle(apex_clipping.point,2,Color.aqua)
+		draw_circle(m_position,2,complete_color)

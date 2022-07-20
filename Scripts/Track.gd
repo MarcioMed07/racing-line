@@ -1,6 +1,7 @@
 extends Line2D
 
 onready var circle_scene = preload("res://Scenes/Circle.tscn")
+onready var Segment = preload("res://Resources/Segment.tres")
 
 export var curve_min_angle = 0.04
 export var max_radius = 300
@@ -23,7 +24,7 @@ var outerPoints = []
 var innerPoints = []
 var racingLinePoints = []
 var racingLineSpeeds = []
-var segments = []
+export(Array, Resource) var segments = []
 var circles = []
 var connected_dots = false;
 var solve_speed = 1;
@@ -37,9 +38,12 @@ var cars = [
 	{
 		speed=100,
 		max_speed = 100,
-		acceleration=0,
+		acceleration=14.2,
+		brake_acceleration = 39,
 		position = Vector2.ZERO,
 		distance = 0,
+		breaking_for_index = -1,
+		speed_index = -1,
 		line = racingLinePoints,
 		curve_speed = racingLineSpeeds,
 		length = racing_line_length,
@@ -48,22 +52,24 @@ var cars = [
 	{
 		max_speed = 100,
 		speed=100,
-		acceleration=0,
+		acceleration=14.2,
+		brake_acceleration = 39,
 		position = Vector2.ZERO,
 		distance = 0,
+		breaking_for_index = -1,
+		speed_index = -1,
 		line = centerPoints,
 		curve_speed = racingLineSpeeds,
 		length = racing_line_length,
 		color = track_border_color
 	}
 ]
-var car_speed = 100
-var car_1_distance = 0
-var car_2_position = Vector2.ZERO
 
 var default_font = Control.new().get_font("font")
 
 func _ready():
+	for car in cars:
+		car.speed = 0
 	if !visible:
 		return
 	centerPoints = points
@@ -83,14 +89,32 @@ func _process(delta):
 		track_process()
 		return
 	for car in cars:
+#	var car = cars[0]
 		car.distance += car.speed * delta
-		if car.distance >= car.length:
-			car.distance = 0
 		var result = get_point_at_distance(car.distance, car.line)
 		car.position = result[0]
-		var curve_speed = car.curve_speed[result[1]]
-		car.speed = curve_speed if curve_speed != - 1 or curve_speed > car.max_speed else car.max_speed
-		
+		car.speed_index = result[1]
+		car.distance = result[2]
+		var curve_speed = array_at(car.curve_speed,car.speed_index)
+		if car.speed_index > car.breaking_for_index or car.speed_index == 0:
+			car.breaking_for_index = -1
+		var next_curve_index = car.speed_index
+		var next_curve_speed = array_at(car.curve_speed,next_curve_index)
+		while curve_speed == next_curve_speed:
+			next_curve_index += 1
+			next_curve_speed = array_at(car.curve_speed,next_curve_index)
+		var distance_to_next_curve = distance_between_line_indexes(car.line,car.distance,next_curve_index)
+		var brake = car.breaking_for_index == car.speed_index
+		var brake_distance = ((pow(next_curve_speed,2) - pow(car.speed ,2)) / ( 2*-car.brake_acceleration)) + ((car.speed+car.acceleration) * delta)
+		if brake_distance > 0:
+			if brake_distance  > distance_to_next_curve:
+				car.breaking_for_index = car.speed_index
+				brake = true
+		var curr_max_speed = curve_speed if curve_speed != - 1 and curve_speed < car.max_speed else car.max_speed
+		if brake:
+			car.speed = car.speed - car.brake_acceleration*delta
+		else:
+			car.speed = car.speed + car.acceleration*delta if car.speed + car.acceleration*delta <= curr_max_speed else curr_max_speed
 	update()
 	pass
 
@@ -143,16 +167,16 @@ func segment_track():
 	segments = []
 	for i in range(centerPoints.size()):
 		var angle =  angle_difference(i)
-		var a = center_points_at(i)
-		var b = center_points_at(i+1)
-		var c = center_points_at(i+2)
+		var a = center_points_at(i-1)
+		var b = center_points_at(i)
+		var c = center_points_at(i+1)
 		var radius = find_radius(a.x,a.y,b.x,b.y,c.x,c.y)
-		print (radius)
+	
 		if !is_segmenting and (angle > curve_min_angle if !use_radius else radius < max_radius):
 			is_segmenting = true
 			segment_start = i
 			segment_end = null
-		if is_segmenting and (angle > curve_min_angle if !use_radius else radius < max_radius):
+		elif is_segmenting and (angle < curve_min_angle if !use_radius else radius > max_radius):
 			is_segmenting = false
 			segment_end = i
 			var A = centerPoints[segment_start]
@@ -175,7 +199,8 @@ func arrange():
 			offset = offset.rotated(previous.direction_to(current).angle())
 		innerPoints[i] = centerPoints[i] + offset
 		outerPoints[i] = centerPoints[i] - offset
-	segment_track()
+	if segments.size() == 0:
+		segment_track()
 	update()
 	pass
 
@@ -216,15 +241,17 @@ func find_radius(x1, y1, x2, y2, x3, y3) :
 
 	var sx21 = pow(x2, 2) - pow(x1, 2);
 	var sy21 = pow(y2, 2) - pow(y1, 2);
-
+	
+	var d1 = (2 * ((y31) * (x12) - (y21) * (x13))) if (2 * ((y31) * (x12) - (y21) * (x13))) != 0 else pow(10,-10)
+	var d2 = (2 * ((x31) * (y12) - (x21) * (y13))) if (2 * ((x31) * (y12) - (x21) * (y13))) != 0 else pow(10,-10)
 	var f = ((sx13) * (x12)
 			+ (sy13) * (x12)
 			+ (sx21) * (x13)
-			+ (sy21) * (x13))/ (2 * ((y31) * (x12) - (y21) * (x13)));
+			+ (sy21) * (x13))/ d1;
 	var g = ((sx13) * (y12)
 			+ (sy13) * (y12)
 			+ (sx21) * (y13)
-			+ (sy21) * (y13))/ (2 * ((x31) * (y12) - (x21) * (y13)));
+			+ (sy21) * (y13))/ d2;
 
 	var c = -(pow(x1, 2)) - pow(y1, 2) - 2 * g * x1 - 2 * f * y1;
 
@@ -360,28 +387,40 @@ func completed():
 
 func get_line_length(line):
 	var length = 0
-	for i in range(centerPoints.size()):
-		length += centerPoints[i-1].distance_to(centerPoints[i])
+	for i in range(line.size()):
+		length += line[i-1].distance_to(line[i])
 	return length
 
 
 
 func get_point_at_distance(distance, line):
+	if distance >= get_line_length(line):
+		distance = 0
 	var curr_distance = 0
 	var last_distance = 0
 	var curr_segment = -1
 	var segment_distance = 0
+	var segment_ran_distance = 0
 	for i in range(line.size()):
 		segment_distance = line[i].distance_to(line[(i+1)%line.size()])
 		curr_distance += segment_distance
 		if curr_distance >= distance:
-			segment_distance = distance-last_distance
+			segment_ran_distance = distance-last_distance
 			curr_segment = (i+1)%line.size()
 			break
 		pass
 		last_distance = curr_distance
 	var direction = line[curr_segment-1].direction_to(line[curr_segment])
-	return [line[curr_segment-1] + direction * segment_distance, curr_segment]
+	var n_position = line[curr_segment-1] + direction * segment_ran_distance
+	var distance_to_next_segment = segment_distance - segment_ran_distance
+	return [n_position , curr_segment, distance, distance_to_next_segment]
+
+
+func distance_between_line_indexes(line,distance,target):
+	var acc = 0
+	for i in range(target):
+		acc += array_at(line,i).distance_to(array_at(line,i+1))
+	return acc - distance if acc - distance > 0 else acc - distance + get_line_length(line)
 
 
 func append_points_to_racing_line(entry_angle,exit_angle,r,center,direction,points_between):
@@ -411,12 +450,13 @@ func draw_track_line(line,speeds, color, width):
 		if connect_dots:
 			draw_line(line[i-1],line[i],color,width)
 		draw_circle(line[i],width*0.8,color)
-		if cars[1].curve_speed.size() > i:
-			draw_string(default_font,line[i], str(cars[1].curve_speed[i]))
 
 
 func circle_at(i) -> Circle:
 	return circles[i%circles.size()]
+
+func array_at(array,i):
+	return array[i%array.size()]
 
 
 func center_points_at(i):
@@ -430,8 +470,10 @@ func print_track():
 	print("]")
 
 
-func _draw():
-	
+var redraw_track = true
+func first_draw():
+	redraw_track = false
+		
 	if show_curve_definitions:
 		for i in range(segments.size()):
 			draw_string(default_font, centerPoints[segments[i].start], "s-"+str(i))
@@ -447,16 +489,32 @@ func _draw():
 			draw_line(innerPoints[i], innerPoints[i+1],  track_border_color, track_border_width)
 	draw_line(innerPoints[0], outerPoints[0],  Color.black, 2)
 	
-	
-	
-	if connected_dots:
-		draw_track_line(racingLinePoints, racingLineSpeeds,racing_line_color, racing_line_width)
-		draw_track_line(centerPoints,[], track_border_color, track_border_width)
-#		draw_curves()
-#		connect_dots()
-	if completed:
-		for car in cars:
+	for point in centerPoints:
+		draw_circle(point, 1, Color.black)
+
+
+func draw_race():
+	for car in cars:
 			draw_circle(car.position, 7, Color.white)
 			draw_circle(car.position, 6.5, car.color)
+			
+			var curve_speed = array_at(car.curve_speed,car.speed_index)
+			var next_curve_speed = array_at(car.curve_speed,car.speed_index+1)
+			var i = car.speed_index+1
+			while curve_speed == next_curve_speed or next_curve_speed == -1:
+				i = i + 1
+				next_curve_speed = array_at(car.curve_speed,i)
 			draw_string(default_font, car.position+Vector2(5,5), str(floor(car.speed)))
+
+func _draw():
+
+	first_draw()
+
+	if connected_dots:
+		draw_track_line(racingLinePoints, racingLineSpeeds,racing_line_color, racing_line_width)
+		draw_track_line(centerPoints,[], track_border_color, racing_line_width)
+
+	if completed:
+		draw_race()
+
 	pass
