@@ -1,0 +1,114 @@
+[gd_scene load_steps=19 format=2]
+
+[ext_resource path="res://Scripts/Track.gd" type="Script" id=1]
+[ext_resource path="res://Scripts/Segment.gd" type="Script" id=2]
+
+[sub_resource type="Resource" id=1]
+script = ExtResource( 2 )
+start = 1
+end = 5
+direction = -1
+
+[sub_resource type="Resource" id=2]
+script = ExtResource( 2 )
+start = 6
+end = 11
+direction = 1
+
+[sub_resource type="Resource" id=3]
+script = ExtResource( 2 )
+start = 12
+end = 17
+direction = -1
+
+[sub_resource type="Resource" id=4]
+script = ExtResource( 2 )
+start = 18
+end = 22
+direction = -1
+
+[sub_resource type="Resource" id=5]
+script = ExtResource( 2 )
+start = 23
+end = 25
+direction = -1
+
+[sub_resource type="Resource" id=6]
+script = ExtResource( 2 )
+start = 26
+end = 29
+direction = 1
+
+[sub_resource type="Resource" id=7]
+script = ExtResource( 2 )
+start = 30
+end = 34
+direction = 1
+
+[sub_resource type="Resource" id=8]
+script = ExtResource( 2 )
+start = 35
+end = 39
+direction = 1
+
+[sub_resource type="Resource" id=9]
+script = ExtResource( 2 )
+start = 40
+end = 48
+direction = -1
+
+[sub_resource type="Resource" id=10]
+script = ExtResource( 2 )
+start = 49
+end = 51
+direction = 1
+
+[sub_resource type="Resource" id=11]
+script = ExtResource( 2 )
+start = 52
+end = 56
+direction = 1
+
+[sub_resource type="Resource" id=12]
+script = ExtResource( 2 )
+start = 57
+end = 62
+direction = -1
+
+[sub_resource type="Resource" id=13]
+script = ExtResource( 2 )
+start = 63
+end = 67
+direction = -1
+
+[sub_resource type="Resource" id=14]
+script = ExtResource( 2 )
+start = 68
+end = 70
+direction = -1
+
+[sub_resource type="Resource" id=15]
+script = ExtResource( 2 )
+start = 71
+end = 79
+direction = -1
+
+[sub_resource type="Resource" id=16]
+script = ExtResource( 2 )
+start = 80
+end = 82
+direction = -1
+
+[node name="Interlagos" type="Line2D"]
+position = Vector2( -1.55554, 1.62287 )
+points = PoolVector2Array( 568.115, 231.212, 278.772, 427.487, 273.822, 433.497, 271.908, 442.238, 274.883, 450.645, 281.954, 454.887, 339.417, 468.112, 344.506, 470.281, 348.594, 473.452, 351.946, 478.832, 353.266, 488.051, 351.931, 497.562, 323.413, 585.847, 319.633, 612.935, 324.043, 636.873, 341.682, 657.032, 364.36, 667.741, 392.709, 674.041, 1031.56, 704.377, 1057.56, 702.377, 1072.56, 696.377, 1086.56, 678.377, 1094.56, 657.377, 1111.57, 565.371, 1107.6, 544.041, 1094.75, 534.03, 737.751, 442.54, 724.327, 435.601, 713.618, 427.387, 704.24, 409.787, 686.297, 317.535, 687.004, 301.272, 692.356, 285.831, 709.278, 275.109, 728.723, 268.391, 839.279, 249.055, 853.847, 247.731, 860.733, 251.439, 865.766, 258.59, 865.501, 266.271, 830.846, 332.718, 828.068, 351.37, 831.243, 368.038, 837.592, 379.546, 852.673, 389.865, 865.372, 392.246, 879.659, 389.468, 891.961, 382.721, 904.263, 368.831, 1006.89, 228.961, 1019.63, 216.219, 1035.44, 206.544, 1148.12, 151.288, 1160.08, 148.125, 1170.76, 148.792, 1176.43, 161.807, 1171.09, 177.825, 1100.08, 316.621, 1091.1, 341.876, 1089.98, 359.835, 1096.16, 381.723, 1108.5, 399.122, 1137.13, 416.52, 1286.37, 448.043, 1299.18, 450.723, 1309.79, 447.895, 1315.44, 441.531, 1318.9, 430.302, 1333.73, 348.265, 1330.82, 313.334, 1321.07, 279.993, 1246.17, 143.6, 1232.99, 127.438, 1218.49, 112.807, 1193.56, 93.0178, 1164.01, 75.7072, 1144.29, 66.7961, 1123.28, 60.8421, 1101.22, 56.6263, 1082.85, 55.788, 855.094, 69.8733, 799.988, 84.2034, 752.612, 106.831, 568.118, 231.205 )
+width = 20.0
+default_color = Color( 0.47451, 0.47451, 0.47451, 1 )
+script = ExtResource( 1 )
+curve_min_angle = 0.08
+max_radius = 150
+use_radius = false
+racing_line_width = 2
+show_center_points = false
+show_curve_definitions = false
+segments = [ SubResource( 1 ), SubResource( 2 ), SubResource( 3 ), SubResource( 4 ), SubResource( 5 ), SubResource( 6 ), SubResource( 7 ), SubResource( 8 ), SubResource( 9 ), SubResource( 10 ), SubResource( 11 ), SubResource( 12 ), SubResource( 13 ), SubResource( 14 ), SubResource( 15 ), SubResource( 16 ) ]

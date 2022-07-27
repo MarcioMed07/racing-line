@@ -1,15 +1,7 @@
 Godot Engine v3.2.3.stable.official - https://godotengine.org
 OpenGL ES 3.0 Renderer: Radeon RX 580 Series
  
-**ERROR**: Node not found: ../../Panel/VBoxContainer/CheckButton.
-   At: scene/main/node.cpp:1381:get_node() - Condition "!node" is true. Returned: __null
-**ERROR**: Node not found: ../../Panel/VBoxContainer/CheckButton.
-   At: scene/main/node.cpp:1381:get_node() - Condition "!node" is true. Returned: __null
-**ERROR**: Node not found: ../../Panel/VBoxContainer/CheckButton.
-   At: scene/main/node.cpp:1381:get_node() - Condition "!node" is true. Returned: __null
-**ERROR**: Node not found: ../../Panel/VBoxContainer/CheckButton.
-   At: scene/main/node.cpp:1381:get_node() - Condition "!node" is true. Returned: __null
-1261ms
-{racing line length:2769.901199, track center length:2793.338006}
+0ms
+{racing line length:2507.527328, track center length:2594.903692}
 **WARNING**: ObjectDB instances leaked at exit (run with --verbose for details).
    At: core/object.cpp:2135:cleanup() - ObjectDB instances leaked at exit (run with --verbose for details).
