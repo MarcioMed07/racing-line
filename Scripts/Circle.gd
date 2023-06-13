@@ -104,6 +104,7 @@ func resolve(full = false):
 	completed = false
 	while !completed:
 		step()
+		update()
 		is_running = !completed
 
 
@@ -184,8 +185,9 @@ func update_exit_clipping():
 
 
 func update_apex_clipping():
-	apex_opposite = outer_segment[(entry_clipping.index+exit_clipping.index)/2]
-	
+	if !second_pass:
+		middle_point_index = (entry_clipping.index+exit_clipping.index)/2
+	apex_opposite = outer_segment[middle_point_index]
 	var min_distance = INF
 	var apex_candidte_index = 0
 	for i in range(inner_segment.size()):
@@ -201,6 +203,8 @@ func update_apex_clipping():
 
 func closest_point_on_line_segment(A,B,C):
 	var AB = B - A
+	if(AB == Vector2.ZERO):
+		return A
 	var AC = C - A
 	var t = AC.dot(AB) / AB.dot(AB)
 	
@@ -237,27 +241,29 @@ func start_second_pass(point, full = false):
 	completed = false
 	second_pass = true
 	second_pass_goal = point
-	outer_segment = outer_segment.slice(1,outer_segment.size())
-	outer_segment.push_front(second_pass_goal)
-	radius = 10
+	for i in range(middle_point_index*0.9):
+		outer_segment[i] = second_pass_goal
+#	outer_segment = outer_segment.slice(middle_point_index*0.9,outer_segment.size())
+#	outer_segment.push_front(second_pass_goal)
+	radius = 0
 	cur_itt = 0
-	m_position = (inner_segment[1]+inner_segment[-2])/2
+	m_position = inner_segment[-1]
 	update_clipping_points()
 	update_hits()
 	resolve(full)
 
 func _draw():
 	if is_running:
-		if second_pass:
-			draw_circle(second_pass_goal, 4, Color.red)
-		for i in range(1,inner_segment.size()):
-			draw_line(inner_segment[i-1],inner_segment[i],complete_color,1)
-		for i in range(1,outer_segment.size()):
-			draw_line(outer_segment[i-1],outer_segment[i],complete_color,1)
-		draw_string(default_font, apex_clipping.point, str(cur_itt))
-		draw_circle(apex_clipping.point,2,Color.red)
-		draw_circle(entry_clipping.point,2,Color.red)
-		draw_circle(exit_clipping.point,2,Color.red)
-		draw_circle(apex_opposite,2,Color.blue)
-		draw_circle(m_position,2,complete_color)
+#		if second_pass:
+#			draw_circle(second_pass_goal, 4, Color.red)
+#		for i in range(1,inner_segment.size()):
+#			draw_line(inner_segment[i-1],inner_segment[i],complete_color,1)
+		for i in range(1,middle_point_index):
+			draw_line(outer_segment[i-1],outer_segment[i],Color.red,2)
+		for i in range(middle_point_index+1, outer_segment.size()):
+			draw_line(outer_segment[i-1],outer_segment[i],Color.blue,2)
+#		draw_string(default_font, apex_clipping.point, str(cur_itt))
+#		draw_circle(apex_clipping.point,3,Color.red)
+#		draw_circle(apex_opposite,2,Color.blue)
+#		draw_circle(m_position,2,complete_color)
 		draw_arc(m_position,radius,0,360,7920,complete_color,2)
