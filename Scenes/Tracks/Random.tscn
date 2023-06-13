@@ -8,7 +8,3 @@ points = PoolVector2Array( 870.811, 275.812, 1016.49, 294.546, 1028.49, 298.987,
 width = 20.0
 default_color = Color( 0.47451, 0.47451, 0.47451, 1 )
 script = ExtResource( 1 )
-use_radius = false
-racing_line_width = 2
-show_center_points = false
-show_curve_definitions = false

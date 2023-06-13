@@ -5,13 +5,13 @@ onready var controller = $".."
 
 export var curve_min_angle = 0.04
 
-export var racing_line_width = 1
+export var racing_line_width = 1.5
 export var racing_line_color = Color.blue
 export var show_center_points = true
 export var show_curve_definitions = true
 export var track_border_width = 1
 export var track_border_color = Color.black
-export var connect_dots = false
+export var connect_dots = true
 
 var started = false
 var arranged = false
@@ -32,6 +32,7 @@ var completed = false
 
 var frictionCoefficient = 1.7
 var gravity = 10
+var race = false
 var cars = [
 	{
 		speed=100,
@@ -133,13 +134,35 @@ var cars = [
 
 var default_font = Control.new().get_font("font")
 
+
+
+
 func _ready():
 	if !visible:
 		return
 	for car in cars:
 		car.speed = 0
-	centerPoints = points
-#	normalize_track()
+	reload_track()
+
+func _process(delta):
+	if !visible or !started:
+		return
+	if !completed:
+		track_process()
+		return
+	if race:
+		for car in cars:
+			car_distance_setup(car, delta)
+			var curve_results = car_curve_speed_calculation(car)
+			var curve_speed = curve_results[0]
+			var next_curve_speed = curve_results[1]
+			var distance_to_next_curve = curve_results[2]
+			if car.will_brake:
+				car_speed_with_brake(car,curve_speed,next_curve_speed,distance_to_next_curve,delta)
+			else:
+				car.speed = car.max_speed
+	update()
+	pass
 
 func start(fullSolve):
 	started = true
@@ -153,11 +176,10 @@ func start(fullSolve):
 	update()
 	pass
 
-
 func reload_track():
 	started = false
 	arranged = false
-	centerPoints = points
+	centerPoints = normalize_track(points,15)
 	centerSpeeds = []
 	outerPoints = []
 	innerPoints = []
@@ -177,93 +199,52 @@ func reload_track():
 		car.position = Vector2.ZERO
 	update()
 
-func _process(delta):
-	if !visible or !started:
-		return
-	if !completed:
-		track_process()
-		return
-	for car in cars:
-		car_distance_setup(car, delta)
-		var curve_results = car_curve_speed_calculation(car)
-		var curve_speed = curve_results[0]
-		var next_curve_speed = curve_results[1]
-		var distance_to_next_curve = curve_results[2]
-		if car.will_brake:
-			car_speed_with_brake(car,curve_speed,next_curve_speed,distance_to_next_curve,delta)
-		else:
-			car.speed = car.max_speed
-	update()
-	pass
-
-#
-#func normalize_track():
-#	var i = 0
-#	var size = centerPoints.size()
-#	var p_distance = 15
-#	while i < size:
-#		var p0 = array_at(centerPoints,i-1)
-#		var p1 = array_at(centerPoints,i)
-#		var p2 = array_at(centerPoints,i+1)
-#		var p3 = array_at(centerPoints,i+2)
-#		var distance = p1.distance_to(p2)
-#		var new_point = p1 + (((p1.direction_to(p2)*p_distance) + p2.direction_to(p3))/2)
-#		if distance > p_distance:
-#			centerPoints.insert(i+1,new_point)
-##			else:
-##				if(i+1 == size):
-##					centerPoints[-1] = new_point
-##				else:
-##					centerPoints[i+1] = new_point
-#		if distance < p_distance:
-#			if(i+1 == size):
-#				centerPoints[-1] = new_point
-#			else:
-#				if new_point.distance_to(p0) < new_point.distance_to(p1):
-#					centerPoints.remove(i+1)
-#				else:
-#					centerPoints[i+1] = new_point
-#		i += 1
-#		size = centerPoints.size()
-#	points = centerPoints
 
 
-func car_distance_setup(car, delta):
-	car.distance += car.speed * delta
-	var result = get_point_at_distance(car.distance, car.line)
-	car.position = result[0]
-	car.speed_index = result[1]
-	car.distance = result[2]
+
+func normalize_track(path: Array, distance: float) -> Array:
+	var equidistant_points: Array = []
+	var total_length: float = calculate_path_length(path)
+
+	equidistant_points.append(path[0])  # Add the first point from the original path
+
+	var accumulated_distance: float = 0.0
+	var previous_point: Vector2 = path[0]
+
+	for i in range(1, path.size()):
+		var current_point: Vector2 = path[i]
+		var segment_length: float = previous_point.distance_to(current_point)
+
+		while accumulated_distance + segment_length >= distance:
+			var remaining_distance: float = distance - accumulated_distance
+			var interpolation_ratio: float = remaining_distance / segment_length
+			var interpolated_point: Vector2 = interpolate_points(previous_point, current_point, interpolation_ratio)
+			equidistant_points.append(interpolated_point)
+
+			previous_point = interpolated_point
+			segment_length -= remaining_distance
+			accumulated_distance = 0.0
+
+		accumulated_distance += segment_length
+		previous_point = current_point
+
+	equidistant_points.append(path[path.size() - 1])  # Add the last point from the original path
+
+	return equidistant_points
 
 
-func car_curve_speed_calculation(car):
-	var curve_speed = array_at(car.curve_speed,car.speed_index)
-	if car.speed_index > car.breaking_for_index or car.speed_index == 0:
-		car.breaking_for_index = -1
-	var next_curve_index = car.speed_index
-	var next_curve_speed = array_at(car.curve_speed,next_curve_index)
-	while curve_speed == next_curve_speed:
-		next_curve_index += 1
-		next_curve_speed = array_at(car.curve_speed,next_curve_index)
-	var distance_to_next_curve = distance_between_line_indexes(car.line,car.distance,next_curve_index)
-	return [curve_speed,next_curve_speed, distance_to_next_curve]
+func calculate_path_length(path: Array) -> float:
+	var total_length: float = 0.0
 
+	for i in range(1, path.size()):
+		var previous_point: Vector2 = path[i - 1]
+		var current_point: Vector2 = path[i]
+		total_length += previous_point.distance_to(current_point)
 
-func car_speed_with_brake(car,curve_speed,next_curve_speed, distance_to_next_curve, delta):
-	var brake = car.breaking_for_index == car.speed_index
-	var brake_distance = ((pow(next_curve_speed,2) - pow(car.speed ,2)) / ( 2*-car.deceleration)) + ((car.speed+car.acceleration) * delta)
-	if brake_distance > 0 and car.deceleration != -1:
-		if brake_distance  > distance_to_next_curve:
-			car.breaking_for_index = car.speed_index
-			brake = true
-	var curr_max_speed = curve_speed if curve_speed != - 1 and curve_speed < car.max_speed else car.max_speed
-	if brake:
-		car.speed = car.speed - car.deceleration*delta
-	elif car.acceleration != -1:
-		car.speed = car.speed + car.acceleration*delta if car.speed + car.acceleration*delta <= curr_max_speed else curr_max_speed
-	if car.acceleration == -1:
-		car.speed = curr_max_speed
-		pass
+	return total_length
+
+func interpolate_points(point1: Vector2, point2: Vector2, ratio: float) -> Vector2:
+	return point1.linear_interpolate(point2, ratio)
 
 
 func track_process():
@@ -272,7 +253,7 @@ func track_process():
 	var acc = true
 	if circles.size() > 0:
 		for circle in circles:
-			acc = acc && circle.is_complete()
+			acc = acc && circle.completed
 		if acc:
 			if !check_final_circles_collisions():
 				completed()
@@ -280,55 +261,65 @@ func track_process():
 			update()
 
 
-func angle_difference(i):
-	var A = center_points_at(i)
-	var B = center_points_at(i+1)
-	var C = center_points_at(i+2)
-	
-	var a2 = B.distance_squared_to (C) 
-	var b2 = A.distance_squared_to (C) 
-	var c2 = A.distance_squared_to (B)  
-	
-	#TODO: treat in case of first/last point
-	if(a2==0 || b2 ==0 || c2== 0):
-		return 0
-	var a = sqrt(a2)
-	var b = sqrt(b2)
-	var c = sqrt(c2)
-	# From Cosine law 
-	var from_cos = (b2+c2-a2)/(2*b*c)
-	if from_cos == 1:
-		return 0
-	var alpha =  acos(from_cos)
-	return 0 if is_nan(alpha) else alpha
-
-
 func segment_track():
+	segments = []
 	var is_segmenting = false
 	var segment_start = null
 	var segment_end = null
-	segments = []
-	for i in range(centerPoints.size()):
-		var angle =  angle_difference(i)
-		var a = center_points_at(i-1)
-		var b = center_points_at(i)
-		var c = center_points_at(i+1)
-		var radius = find_radius(a.x,a.y,b.x,b.y,c.x,c.y)
-		if !is_segmenting and angle > curve_min_angle:
+	var angle_tolerance = 0.999
+	var min_curve_angle = 0.85
+	var last_angle = 0
+	for i in range(centerPoints.size() - 1):
+		var prev_point = centerPoints[i - 1]
+		var current_point = centerPoints[i]
+		var next_point = centerPoints[i + 1]
+		var direction = (next_point - current_point).normalized()
+		var angle = direction.angle_to((prev_point - current_point).normalized()) / PI
+		if !is_segmenting and abs(angle) < angle_tolerance and angle != 0:
 			is_segmenting = true
 			segment_start = i
-			segment_end = null
-		elif is_segmenting and angle <= curve_min_angle:
-			is_segmenting = false
+		elif is_segmenting and (abs(angle) > angle_tolerance or sign(last_angle) != sign(angle)):
 			segment_end = i
-			var A = centerPoints[segment_start]
-			var B = centerPoints[segment_start+1]
-			var P = centerPoints[segment_end]
-			var AP = A.direction_to(P)
-			var AB = A.direction_to(B)
-			var curve_direction =  1 if AB.angle_to(AP) >= 0 else -1
-			segments.append({start= segment_start,end=segment_end, direction = curve_direction})
+			is_segmenting = false
+			var first_point = centerPoints[segment_start]
+			var middle_point  = centerPoints[floor((segment_start+segment_end)/2)]
+			var final_point = centerPoints[segment_end]
+			var total_curve_angle = (final_point - middle_point).normalized().angle_to((first_point - middle_point).normalized()) / PI
+			if total_curve_angle != 0:
+				segments.append({start = segment_start, end = segment_end, direction = sign(total_curve_angle)})
+		last_angle = angle
+	
+	var i = -1
+	var max_distance_to_combine = 5
+	while i < segments.size():
+		i += 1
+		if(i >= segments.size()):
+			break
+		var curr_segment = segments[i]
+		var first_point = centerPoints[curr_segment.start]
+		var middle_point  = centerPoints[floor((curr_segment.start+curr_segment.end)/2)]
+		var final_point = centerPoints[curr_segment.end]
+		var total_curve_angle = abs((final_point - middle_point).normalized().angle_to((first_point - middle_point).normalized()) / PI)
+		if(total_curve_angle > min_curve_angle):
+			var prev_segment = segments[i-1]
+			var next_segment = segments[(i+1)%segments.size()]
 
+			var prev_proximity = abs(curr_segment.start - prev_segment.end)
+			var next_proximity = abs(curr_segment.end - next_segment.start)
+			
+			if prev_proximity < max_distance_to_combine and prev_proximity <= next_proximity and curr_segment.direction == prev_segment.direction:
+				segments[i-1].end = curr_segment.end
+				segments.remove(i)
+				i-=1
+			elif next_proximity < max_distance_to_combine and next_proximity < prev_proximity and curr_segment.direction == next_segment.direction:
+				segments[(i+1)%segments.size()].start = curr_segment.start
+				segments.remove(i)
+				i-=1
+#			else:
+#				segments.remove(i)
+#				i-=1
+		
+#	print(segments)
 
 func arrange():
 	innerPoints.resize(centerPoints.size())
@@ -347,93 +338,58 @@ func arrange():
 	pass
 
 
-func find_curve_speeds():
-	for i in range(centerPoints.size()):
-		centerSpeeds.append(-1)
-	for segment in segments:
-		var p1 = centerPoints[segment.start]
-		var p2 = centerPoints[floor((segment.start+segment.end)/2)]
-		var p3 = centerPoints[segment.end]
-		var r = find_radius(p1.x,p1.y,p2.x,p2.y,p3.x,p3.y)
-		var segment_speed = sqrt(frictionCoefficient * gravity * r)
-		for i in range(segment.start+1,segment.end):
-			centerSpeeds[i] = segment_speed
-		
-		pass
-	pass
+func calculate_circle_radius(point1: Vector2, point2: Vector2, point3: Vector2) -> float:
+	var dx12 = point1.x - point2.x
+	var dx13 = point1.x - point3.x
+	var dy12 = point1.y - point2.y
+	var dy13 = point1.y - point3.y
+	var dy31 = point3.y - point1.y
+	var dy21 = point2.y - point1.y
+	var dx31 = point3.x - point1.x
+	var dx21 = point2.x - point1.x
 
+	var sx13 = pow(point1.x, 2) - pow(point3.x, 2)
+	var sy13 = pow(point1.y, 2) - pow(point3.y, 2)
+	var sx21 = pow(point2.x, 2) - pow(point1.x, 2)
+	var sy21 = pow(point2.y, 2) - pow(point1.y, 2)
 
-func find_radius(x1, y1, x2, y2, x3, y3) :
-	var x12 = (x1 - x2);
-	var x13 = (x1 - x3);
+	var d1 = (2 * (dy31 * dx12 - dy21 * dx13)) if (2 * (dy31 * dx12 - dy21 * dx13)) != 0 else pow(10, -10)
+	var d2 = (2 * (dx31 * dy12 - dx21 * dy13)) if (2 * (dx31 * dy12 - dx21 * dy13)) != 0 else pow(10, -10)
 
-	var y12 =( y1 - y2);
-	var y13 = (y1 - y3);
+	var f = (sx13 * dx12 + sy13 * dx12 + sx21 * dx13 + sy21 * dx13) / d1
+	var g = (sx13 * dy12 + sy13 * dy12 + sx21 * dy13 + sy21 * dy13) / d2
 
-	var y31 = (y3 - y1);
-	var y21 = (y2 - y1);
+	var c = -(pow(point1.x, 2)) - pow(point1.y, 2) - 2 * g * point1.x - 2 * f * point1.y
 
-	var x31 = (x3 - x1);
-	var x21 = (x2 - x1);
+	var h = -g
+	var k = -f
+	var sqr_of_r = h * h + k * k - c
 
-#	//x1^2 - x3^2
-	var sx13 = pow(x1, 2) - pow(x3, 2);
+	return sqrt(sqr_of_r)
 
-#	// y1^2 - y3^2
-	var sy13 = pow(y1, 2) - pow(y3, 2);
-
-	var sx21 = pow(x2, 2) - pow(x1, 2);
-	var sy21 = pow(y2, 2) - pow(y1, 2);
-	
-	var d1 = (2 * ((y31) * (x12) - (y21) * (x13))) if (2 * ((y31) * (x12) - (y21) * (x13))) != 0 else pow(10,-10)
-	var d2 = (2 * ((x31) * (y12) - (x21) * (y13))) if (2 * ((x31) * (y12) - (x21) * (y13))) != 0 else pow(10,-10)
-	var f = ((sx13) * (x12)
-			+ (sy13) * (x12)
-			+ (sx21) * (x13)
-			+ (sy21) * (x13))/ d1;
-	var g = ((sx13) * (y12)
-			+ (sy13) * (y12)
-			+ (sx21) * (y13)
-			+ (sy21) * (y13))/ d2;
-
-	var c = -(pow(x1, 2)) - pow(y1, 2) - 2 * g * x1 - 2 * f * y1;
-
-#	// eqn of circle be
-#	// x^2 + y^2 + 2*g*x + 2*f*y + c = 0
-#	// where centre is (h = -g, k = -f) and radius r
-#	// as r^2 = h^2 + k^2 - c
-	var h = -g;
-	var k = -f;
-	var sqr_of_r = h * h + k * k - c;
-
-#	// r is the radius
-	return sqrt(sqr_of_r);
 
 
 func spawn_circles():
 	for i in range(0,segments.size()):
 		var segment = segments[i]
+		var next_segment = segments[(i+1)%segments.size()]
+		var prev_segment = segments[i-1]
+		
 		var circle = circle_scene.instance()
-		var segment_trailling = 1
+		
+		var segment_trailling = 10
 		var updated_success = false
-		var start = segment.start-segment_trailling
-		var end = (segment.end+segment_trailling)%innerPoints.size()
-		if segment.direction > 0:
-			updated_success = circle.update_points(
-				innerPoints.slice(start, end),
-				outerPoints.slice(start, end),
-				Color.purple,
-				segment.direction,
-				i
-			)
-		else:
-			updated_success = circle.update_points(
-				outerPoints.slice(start, end),
-				innerPoints.slice(start, end),
-				Color.yellow,
-				segment.direction,
-				i
-			)
+		
+		var start = prev_segment.end if i > 0 else 0 #floor((prev_segment.end + segment.start)/2) if i > 0 else 0
+		var end = next_segment.start if i < segments.size()-1 else centerPoints.size() #floor((next_segment.start + segment.end)/2) if i < segments.size()-1 else centerPoints.size()
+		print([i,start,end])
+		
+		var inner_bounds = (innerPoints if segment.direction > 0 else outerPoints).slice(segment.start, segment.end)
+		var outer_bounds = (outerPoints if segment.direction > 0 else innerPoints).slice(start, end)
+		
+		var color = Color.purple if segment.direction > 0 else Color.yellow
+		updated_success = circle.update_points(inner_bounds, outer_bounds, color,segment.direction, i)
+		
 		if(updated_success):
 			self.add_child(circle, true)
 			circles.append(circle)
@@ -445,19 +401,8 @@ func spawn_circles():
 func resolve_circles():
 	for circle in circles:
 		circle.resolve(full_solve)
-#	var num_threads = 24
-#	var threads = []
-#	for i in range(num_threads):
-#		threads.append(Thread.new())
-#	for i in range(circles.size()):
-#		var circle = circle_at(i)
-#		var thread:Thread = threads[i%num_threads]
-#		thread.wait_to_finish()
-#		thread.start(circle,'resolve',full_solve)
 
-# if the edges of the circles touch, the distance between the centers is r1+r2;
-# any greater distance and the circles don't touch or collide; and
-# any less and then do collide
+
 func circle_collision(circle_a:Vector2, circle_b:Vector2,radius_a:float, radius_b:float):
 	return pow((circle_a.x-circle_b.x),2) + pow((circle_a.y-circle_b.y),2) <= pow((radius_a - radius_b),2)
 
@@ -468,8 +413,13 @@ func check_final_circles_collisions():
 		var A = circle_at(i)
 		var B = circle_at(i+1)
 		var entry_point = B.entry_clipping.point
-		var distance_from_circle_to_point = A.m_position.distance_to(entry_point)
-		if(distance_from_circle_to_point < A.radius and !B.second_pass):
+		var distance = A.m_position.distance_to(B.m_position)
+		var sum_of_radii = A.radius + B.radius
+
+#		var distance_from_circle_to_point = A.m_position.distance_to(entry_point)
+#		if(distance_from_circle_to_point < A.radius and !B.second_pass):
+		var threshold = -2
+		if distance-sum_of_radii <= threshold and A.direction != B.direction and B.second_pass == false:
 			problem = true
 			B.start_second_pass(A.exit_clipping.point, full_solve)
 	return problem
@@ -480,42 +430,83 @@ func check_circles_out_collision(i,j):
 	var second_curve_distance = circle_at(j).entry_clipping.point.distance_to(center_points_at(segments[i].end))
 	return second_curve_distance < first_curve_distance
 
+func wrap_degrees(angle_from,angle_to):
+	if(angle_from < 0):
+		angle_from += 360
+	if(angle_to < 0):
+		angle_to += 360
+	if(angle_to < angle_from):
+		angle_to += 360
+	return [angle_from,angle_to]
 
+
+func get_intersection_point(i):
+	var circle = circle_at(i)
+	var entry_minus_exit = (circle_at(i + 1).entry_clipping.point + circle_at(i).exit_clipping.point)/2
+	return circle.m_position + (circle_at(i).exit_clipping.point - circle.m_position).normalized() * circle.radius
+	
+
+var intersection_points = []
 func completed():
 	controller.changePanel(2)
 	find_curve_speeds()
 	var new_angles = []
+	var center_points = []
+
 	for i in range(circles.size()):
-		new_angles.append({angle_to=null, angle_from=null})
+		new_angles.append({angle_to= null, angle_from= null})
+
 	for i in range(circles.size()):
 		var circle = circle_at(i)
-		var circles_collided = check_circles_out_collision(i,i+1)
+		var next_circle_index = (i + 1) % circles.size()
+		var circles_collided = check_circles_out_collision(i, next_circle_index)
+
 		if circles_collided:
-				var center_point = (circle_at(i+1).entry_clipping.point + circle_at(i).exit_clipping.point)/2
-				var magic = circle_at(i).m_position + (center_point - circle_at(i).m_position).normalized()*circle_at(i).radius
-				new_angles[i].angle_to = rad2deg(magic.angle_to_point(circle.m_position))
-				new_angles[(i+1)%centerPoints.size()].angle_from = rad2deg(magic.angle_to_point(circle_at(i+1).m_position))
-	
+			var intersection_point = get_intersection_point(i) #circle.m_position + ((circle_at(i + 1).entry_clipping.point + circle_at(i).exit_clipping.point) / 2 - circle.m_position).normalized() * circle.radius
+			new_angles[i].angle_to = rad2deg(intersection_point.angle_to_point(circle.m_position))
+			new_angles[next_circle_index].angle_from = rad2deg(intersection_point.angle_to_point(circle_at(next_circle_index).m_position))
+
 	for i in range(circles.size()):
 		var circle = circle_at(i)
-		var angle_from = rad2deg(circle.entry_clipping.point.angle_to_point(circle.m_position))
-		var angle_to = rad2deg(circle.exit_clipping.point.angle_to_point(circle.m_position))
-		if(new_angles[i].angle_to != null):
+		var angle_to = null
+		var angle_from = null
+		if(new_angles[i].angle_to == null):
+			angle_to = rad2deg(circle.exit_clipping.point.angle_to_point(circle.m_position))
+		else:
 			angle_to = new_angles[i].angle_to
-		if(new_angles[i].angle_from != null):
-			angle_from = new_angles[i].angle_from 
-		if(angle_from < 0):
-			angle_from += 360
-		if(angle_to < 0):
-			angle_to += 360
-		if(angle_to < angle_from):
-			angle_to += 360
+			
+		if(new_angles[i].angle_from == null):
+			angle_from = rad2deg(circle.entry_clipping.point.angle_to_point(circle.m_position))
+		else:
+			angle_from = new_angles[i].angle_from
+		
+		var wrapped_angles = wrap_degrees(angle_from,angle_to)
+		angle_from = wrapped_angles[0]
+		angle_to = wrapped_angles[1]
+		
 		if circle.direction > 0:
 			append_points_to_racing_line(deg2rad(angle_from), deg2rad(angle_to), circle.radius, circle.m_position,circle.direction,circle.entry_clipping.point.distance_to(circle.exit_clipping.point)/10)
 		else:
 			append_points_to_racing_line(deg2rad(angle_to), deg2rad(angle_from+360), circle.radius, circle.m_position,circle.direction,circle.entry_clipping.point.distance_to(circle.exit_clipping.point)/10)
-	racingLinePoints.push_front(center_points_at(0))
-	racingLineSpeeds.push_front(-1)
+	
+#	for i in range(circles.size()):
+#		var circle = circle_at(i)
+#		var angle_from = rad2deg(circle.entry_clipping.point.angle_to_point(circle.m_position))
+#		var angle_to = rad2deg(circle.exit_clipping.point.angle_to_point(circle.m_position))
+#		if(new_angles[i].angle_to != null):
+#			angle_to = new_angles[i].angle_to
+#		if(new_angles[i].angle_from != null):
+#			angle_from = new_angles[i].angle_from 
+#
+#		[angle_from,angle_to] = wrap_degrees(angle_from,angle_to)
+#
+#		if circle.direction > 0:
+#			append_points_to_racing_line(deg2rad(angle_from), deg2rad(angle_to), circle.radius, circle.m_position,circle.direction,circle.entry_clipping.point.distance_to(circle.exit_clipping.point)/10)
+#		else:
+#			append_points_to_racing_line(deg2rad(angle_to), deg2rad(angle_from+360), circle.radius, circle.m_position,circle.direction,circle.entry_clipping.point.distance_to(circle.exit_clipping.point)/10)
+
+#	racingLinePoints.push_front(center_points_at(0))
+#	racingLineSpeeds.push_front(-1)
 	print({'racing line length':get_line_length(racingLinePoints), 'track center length':get_line_length(centerPoints)})
 	
 	for car in cars:
@@ -535,7 +526,6 @@ func get_line_length(line):
 	for i in range(line.size()):
 		length += line[i-1].distance_to(line[i])
 	return length
-
 
 
 func get_point_at_distance(distance, line):
@@ -588,7 +578,65 @@ func append_points_to_racing_line(entry_angle,exit_angle,r,center,direction,poin
 	local_speeds[0] = -1
 	racingLineSpeeds += local_speeds
 
-	
+
+
+
+
+
+func car_distance_setup(car, delta):
+	car.distance += car.speed * delta
+	var result = get_point_at_distance(car.distance, car.line)
+	car.position = result[0]
+	car.speed_index = result[1]
+	car.distance = result[2]
+
+
+func find_curve_speeds():
+	for i in range(centerPoints.size()):
+		centerSpeeds.append(-1)
+	for segment in segments:
+		var p1 = centerPoints[segment.start]
+		var p2 = centerPoints[floor((segment.start+segment.end)/2)]
+		var p3 = centerPoints[segment.end]
+		var r = calculate_circle_radius(p1,p2,p3)
+		var segment_speed = sqrt(frictionCoefficient * gravity * r)
+		for i in range(segment.start+1,segment.end):
+			centerSpeeds[i] = segment_speed
+		pass
+	pass
+
+func car_curve_speed_calculation(car):
+	var curve_speed = array_at(car.curve_speed,car.speed_index)
+	if car.speed_index > car.breaking_for_index or car.speed_index == 0:
+		car.breaking_for_index = -1
+	var next_curve_index = car.speed_index
+	var next_curve_speed = array_at(car.curve_speed,next_curve_index)
+	while curve_speed == next_curve_speed:
+		next_curve_index += 1
+		next_curve_speed = array_at(car.curve_speed,next_curve_index)
+	var distance_to_next_curve = distance_between_line_indexes(car.line,car.distance,next_curve_index)
+	return [curve_speed,next_curve_speed, distance_to_next_curve]
+
+
+func car_speed_with_brake(car,curve_speed,next_curve_speed, distance_to_next_curve, delta):
+	var brake = car.breaking_for_index == car.speed_index
+	var brake_distance = ((pow(next_curve_speed,2) - pow(car.speed ,2)) / ( 2*-car.deceleration)) + ((car.speed+car.acceleration) * delta)
+	if brake_distance > 0 and car.deceleration != -1:
+		if brake_distance  > distance_to_next_curve:
+			car.breaking_for_index = car.speed_index
+			brake = true
+	var curr_max_speed = curve_speed if curve_speed != - 1 and curve_speed < car.max_speed else car.max_speed
+	if brake:
+		car.speed = car.speed - car.deceleration*delta
+	elif car.acceleration != -1:
+		car.speed = car.speed + car.acceleration*delta if car.speed + car.acceleration*delta <= curr_max_speed else curr_max_speed
+	if car.acceleration == -1:
+		car.speed = curr_max_speed
+		pass
+
+
+
+
 
 func draw_track_line(line,speeds, color, width):
 	for i in range(line.size()):
