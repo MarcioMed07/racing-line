@@ -30,7 +30,7 @@ var complete_color = Color.gray
 var completed = false
 
 var is_running = false
-var second_pass = false
+var second_pass = 0
 var second_pass_goal = Vector2.ZERO
 
 var default_font = Control.new().get_font("font")
@@ -74,7 +74,7 @@ func grow_circle():
 
 func move_circle():
 	var moving_dir = Vector2.ZERO
-	if m_position.distance_to(apex_clipping.point) > hit_threshold and apex_clipping.distance > radius:
+	if apex_clipping.distance > hit_threshold and apex_clipping.distance > radius:
 		moving_dir += (apex_clipping.point - m_position)
 	else:
 		if entry_clipping.hit:
@@ -111,20 +111,18 @@ func resolve(full = false):
 ## Circle proccess is complete when the circle hits the outer lines at entry and exit and the apex on the inside line
 func is_complete():
 	cur_itt += 1
-	if completed:
-		return true
 	if(cur_itt > max_itt):
-		return true
+		completed = true
 	if cur_itt % checking_interval == 0:
 		if(m_position.distance_to(last_position) < complete_threshold and abs(radius-last_radius) < complete_threshold):
-			return true
+			completed = true
 		last_position = m_position
 		last_radius = radius
 	if radius > max_radius:
-		return true
+		completed =  true
 	if entry_clipping.hit and exit_clipping.hit and apex_clipping.hit:
-		return true
-	return false
+		completed =  true
+	return completed
 
 
 func update_clipping_points():
@@ -185,7 +183,7 @@ func update_exit_clipping():
 
 
 func update_apex_clipping():
-	if !second_pass:
+	if second_pass == 0:
 		middle_point_index = (entry_clipping.index+exit_clipping.index)/2
 	apex_opposite = outer_segment[middle_point_index]
 	var min_distance = INF
@@ -239,7 +237,7 @@ func start_second_pass(point, full = false):
 	last_position = Vector2.ZERO
 	last_radius = 0
 	completed = false
-	second_pass = true
+	second_pass += 1
 	second_pass_goal = point
 	for i in range(middle_point_index*0.9):
 		outer_segment[i] = second_pass_goal

@@ -143,6 +143,7 @@ margin_right = 303.0
 margin_bottom = 212.0
 
 [node name="Azul" type="HBoxContainer" parent="CanvasLayer/Control/Panel/VBox/CarsVBox"]
+visible = false
 margin_right = 303.0
 margin_bottom = 14.0
 
@@ -160,6 +161,7 @@ margin_bottom = 14.0
 text = "RL; VCUR; V=100m/s; A=14.2m/s²; D=39m/s²"
 
 [node name="Preto" type="HBoxContainer" parent="CanvasLayer/Control/Panel/VBox/CarsVBox"]
+visible = false
 margin_top = 18.0
 margin_right = 303.0
 margin_bottom = 32.0
@@ -177,6 +179,7 @@ margin_bottom = 14.0
 text = "LC; VCUR; V=100m/s; A=14.2m/s²; D=39m/s²"
 
 [node name="Verde" type="HBoxContainer" parent="CanvasLayer/Control/Panel/VBox/CarsVBox"]
+visible = false
 margin_top = 36.0
 margin_right = 303.0
 margin_bottom = 50.0
@@ -194,6 +197,7 @@ margin_bottom = 14.0
 text = "RL; VCUR; V=100m/s;                                      "
 
 [node name="Rosa" type="HBoxContainer" parent="CanvasLayer/Control/Panel/VBox/CarsVBox"]
+visible = false
 margin_top = 54.0
 margin_right = 303.0
 margin_bottom = 68.0
@@ -211,6 +215,7 @@ margin_bottom = 14.0
 text = "LC; VCUR; V=100m/s;                                      "
 
 [node name="Vermelho" type="HBoxContainer" parent="CanvasLayer/Control/Panel/VBox/CarsVBox"]
+visible = false
 margin_top = 72.0
 margin_right = 303.0
 margin_bottom = 86.0
@@ -228,6 +233,7 @@ margin_bottom = 14.0
 text = "RL; VCON; V=100m/s;                                     "
 
 [node name="Amarelo" type="HBoxContainer" parent="CanvasLayer/Control/Panel/VBox/CarsVBox"]
+visible = false
 margin_top = 90.0
 margin_right = 303.0
 margin_bottom = 104.0
@@ -268,6 +274,7 @@ margin_bottom = 160.0
 [node name="ShowLinesCheck" type="CheckBox" parent="CanvasLayer/Control/Panel/VBox/CarsVBox/ShowLines"]
 margin_right = 24.0
 margin_bottom = 24.0
+pressed = true
 
 [node name="Label" type="Label" parent="CanvasLayer/Control/Panel/VBox/CarsVBox/ShowLines"]
 margin_left = 28.0

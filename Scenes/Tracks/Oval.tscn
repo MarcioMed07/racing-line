@@ -9,6 +9,3 @@ width = 20.0
 default_color = Color( 0.47451, 0.47451, 0.47451, 1 )
 script = ExtResource( 1 )
 curve_min_angle = 0.026
-use_radius = false
-racing_line_width = 2
-connect_dots = true

@@ -7,6 +7,7 @@ onready var Oval = preload("res://Scenes/Tracks/Oval.tscn")
 onready var Interlagos = preload("res://Scenes/Tracks/Interlagos.tscn")
 onready var Nurburgring = preload("res://Scenes/Tracks/Nurburgring.tscn")
 onready var Monaco = preload("res://Scenes/Tracks/Monaco.tscn")
+onready var Monza = preload("res://Scenes/Tracks/Monza.tscn")
 var tracks = []
 func _ready():
 	tracks = [Custom,Oval,Interlagos,Nurburgring,Monaco]
@@ -15,6 +16,7 @@ func _ready():
 	add_item('Interlagos',2)
 	add_item('Nurburgring',3)
 	add_item('Monaco',4)
+	add_item('Monza',4)
 	selected = -1
 
 

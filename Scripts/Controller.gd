@@ -9,11 +9,12 @@ onready var Oval = preload("res://Scenes/Tracks/Oval.tscn")
 onready var Interlagos = preload("res://Scenes/Tracks/Interlagos.tscn")
 onready var Nurburgring = preload("res://Scenes/Tracks/Nurburgring.tscn")
 onready var Monaco = preload("res://Scenes/Tracks/Monaco.tscn")
+onready var Monza = preload("res://Scenes/Tracks/Monza.tscn")
 
 func _ready():
 	cur_track = get_node("Track")
-	tracks = [Custom,Oval,Interlagos,Nurburgring,Monaco]
-	control.setTrackOptions(['Custom','Oval','Interlagos','Nurburgring','Monaco'])
+	tracks = [Custom,Oval,Interlagos,Nurburgring,Monaco,Monza]
+	control.setTrackOptions(['Custom','Oval','Interlagos','Nurburgring','Monaco','Monza'])
 
 func isPaused():
 	if cur_track:

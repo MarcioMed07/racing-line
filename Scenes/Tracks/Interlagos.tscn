@@ -9,3 +9,4 @@ width = 20.0
 default_color = Color( 0.47451, 0.47451, 0.47451, 1 )
 script = ExtResource( 1 )
 curve_min_angle = 0.08
+real_track_length = 4309
