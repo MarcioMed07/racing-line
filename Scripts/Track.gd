@@ -78,7 +78,7 @@ var cars = [
 		max_speed = max_speed,
 		speed=max_speed,
 		acceleration=10.69,
-		deceleration = 25.7,
+		deceleration = 51.44,
 		position = Vector2.ZERO,
 		distance = 0,
 		breaking_for_index = -1,
@@ -96,7 +96,7 @@ var cars = [
 		max_speed = max_speed,
 		speed=max_speed,
 		acceleration=10.69,
-		deceleration = 25.7,
+		deceleration = 51.44,
 		position = Vector2.ZERO,
 		distance = 0,
 		breaking_for_index = -1,
@@ -149,13 +149,15 @@ var default_font = Control.new().get_font("font")
 
 
 func _ready():
+	default_color = Color(0.8,0.8,0.8)
 	if !visible:
 		return
 	for car in cars:
-		car.speed = car.max_speed
+		car.speed = car.max_speed/2
 	reload_track()
 
 func _process(delta):
+	delta *= 1
 	if !visible or !started:
 		return
 	if !completed:
@@ -189,7 +191,7 @@ func _process(delta):
 #				car_speed_with_brake(car,curve_speed,next_curve_speed,distance_to_next_curve,delta)
 #			else:
 #				car.speed = car.max_speed
-			if(car.last_speed_index == 0 && car.speed_index > 0):
+			if(car.last_speed_index == 0 or car.last_speed_index == 1 && car.speed_index > 1):
 				print([car.color,car.time])
 				car.time = 0
 			car.last_speed_index = car.speed_index
@@ -197,16 +199,52 @@ func _process(delta):
 	pass
 
 func start(fullSolve):
+	reload_track()
 	started = true
-	full_solve = fullSolve
+	var startTime = OS.get_ticks_msec()
 	arrange()
 	spawn_circles(centerSegments)
-	var time_start = OS.get_ticks_msec() 
-	resolve_circles()
-	var time_end = OS.get_ticks_msec()
-	print(time_end - time_start, 'ms')
+	if(!fullSolve):
+		resolve_circles(fullSolve)
+		return
+	resolve_circles(fullSolve)
+	while !connected_dots:
+		var acc = true
+		for circle in circles:
+			acc = acc && circle.completed
+		if acc:
+			if !check_final_circles_collisions(fullSolve):
+				connectRacingLine(centerSegments)
+				connected_dots = true
 	update()
+	var endTime = OS.get_ticks_msec()
+	var rlr = []
+	for c in circles:
+		rlr.append(c.radius)
+	
+	print('\\item Tempo:',endTime-startTime, 'ms')
+	var cpr = []
+	for s in centerSegments:
+		var p1 = centerPoints[s.start]
+		var p2 = centerPoints[floor((s.start+s.end)/2)]
+		var p3 = centerPoints[s.end]
+		var r = calculate_circle_radius(p1,p2,p3)
+		cpr.append(round(r))
+	
+	print('\\item Distancia do tracado de corrida: ',get_line_length(racingLinePoints))
+	print('\\item Numero de curvas: ',centerSegments.size())
+	print('\\item Raio das curvas: ', cpr)
+	print('\\item Raio das curvas pelo tracada de corrida: ', rlr)
+	print('\\item Largura da pista: ',width)
+	print('\\item Comprimento da pista: ',get_line_length(centerPoints))
+	if(real_track_length != -1):
+		meter_conversion = get_line_length(centerPoints)/real_track_length
+		print('\\item Comprimento da pista escalonado: ',real_track_length)
+		print('\\item Largura da pista escalonada: ', round(width/meter_conversion))
+		print('\\item Proporcao de escala: ',meter_conversion)
 	pass
+	print('------------------------------')
+
 
 func reload_track():
 	started = false
@@ -231,6 +269,8 @@ func reload_track():
 		car.distance = 0
 		car.position = Vector2.ZERO
 	update()
+	
+	
 
 
 
@@ -278,7 +318,7 @@ func track_process(segments):
 		for circle in circles:
 			acc = acc && circle.completed
 		if acc:
-			if !check_final_circles_collisions():
+			if !check_final_circles_collisions(full_solve):
 				connectRacingLine(segments)
 				connected_dots = true
 			update()
@@ -290,7 +330,7 @@ func segment_track(points):
 	var segment_start = null
 	var segment_end = null
 	var angle_tolerance = 0.999
-	var min_curve_angle = 0.85
+	var min_curve_angle = 0.90
 	var last_angle = 0
 	for i in range(points.size() - 1):
 		var prev_point = points[i - 1]
@@ -316,6 +356,7 @@ func segment_track(points):
 	var max_distance_to_combine = 75/point_distance
 	var always_combine_distance = 25/point_distance
 	var always_combine_size = 25/point_distance
+	
 	while i < segments.size():
 		i += 1
 		if(i >= segments.size()):
@@ -414,8 +455,8 @@ func spawn_circles(segments):
 		
 		var start = prev_segment.end if i > 0 else 0 #floor((prev_segment.end + segment.start)/2) if i > 0 else 0
 		var end = next_segment.start if i < segments.size()-1 else centerPoints.size() #floor((next_segment.start + segment.end)/2) if i < segments.size()-1 else centerPoints.size()
-		start = segment.start - segment_trailling
-		end = segment.end + segment_trailling
+#		start = segment.start - segment_trailling
+#		end = segment.end + segment_trailling
 		var inner_bounds = (innerPoints if segment.direction > 0 else outerPoints).slice(segment.start, segment.end)
 		var outer_bounds = (outerPoints if segment.direction > 0 else innerPoints).slice(start, end)
 		
@@ -430,16 +471,16 @@ func spawn_circles(segments):
 	pass
 
 
-func resolve_circles():
+func resolve_circles(fullSolve):
 	for circle in circles:
-		circle.resolve(full_solve)
+		circle.resolve(fullSolve)
 
 
 func circle_collision(circle_a:Vector2, circle_b:Vector2,radius_a:float, radius_b:float):
 	return pow((circle_a.x-circle_b.x),2) + pow((circle_a.y-circle_b.y),2) <= pow((radius_a - radius_b),2)
 
 
-func check_final_circles_collisions():
+func check_final_circles_collisions(fullSolve):
 	var problem = false
 	for i in range(circles.size()):
 		var A = circle_at(i)
@@ -450,7 +491,7 @@ func check_final_circles_collisions():
 		var threshold = -2
 		if distance-sum_of_radii <= threshold and A.direction != B.direction and B.second_pass < 10:
 			problem = true
-			B.start_second_pass(A.exit_clipping.point, full_solve)
+			B.start_second_pass(A.exit_clipping.point, fullSolve)
 	return problem
 
 
@@ -519,9 +560,12 @@ func connectRacingLine(segments):
 			angle_from = convertToPositiveAngle(angle_from)
 		var pointsBetween = ceil(abs(((angle_from - angle_to)) * circle.radius)/point_distance)
 		append_points_to_racing_line((angle_from), (angle_to), circle.radius, circle.m_position,circle.direction,pointsBetween)#circle.entry_clipping.point.distance_to(circle.exit_clipping.point)/10)
-	racingLinePoints.push_front(outerPoints[0])
-	racingLinePoints.push_back(outerPoints[-1])
-	
+	if segments[0].direction != segments[-1].direction:
+		racingLinePoints.push_front(centerPoints[0])
+		racingLinePoints.push_back(centerPoints[0])
+	else:
+		racingLinePoints.push_front(outerPoints[1])
+		racingLinePoints.push_back(outerPoints[1])
 
 	racingLinePoints = normalize_track(racingLinePoints, point_distance)
 	
@@ -529,7 +573,7 @@ func connectRacingLine(segments):
 		var prev_point = racingLinePoints[i-1]
 		var curr_point = racingLinePoints[i]
 		var next_point = racingLinePoints[(i+1)%racingLinePoints.size()]
-		racingLinePoints[i] = (next_point+curr_point+prev_point)/3
+#		racingLinePoints[i] = (next_point+curr_point+prev_point)/3
 	
 	racingLineSegments = []
 	for circle in circles:
@@ -543,10 +587,6 @@ func connectRacingLine(segments):
 			if racingLinePoints[i].distance_to(exit) < racingLinePoints[closest_to_exit].distance_to(exit):
 				closest_to_exit = i
 		racingLineSegments.append({start=closest_to_entry, end=closest_to_exit, direction=circle.direction})
-	print({'racing line length':get_line_length(racingLinePoints), 'track center length':get_line_length(centerPoints)})
-	if(real_track_length != -1):
-		meter_conversion = get_line_length(centerPoints)/real_track_length
-		print({'real track length':real_track_length, 'meter conversion':meter_conversion})
 	
 	centerSpeeds = find_curve_speeds(centerPoints, centerSegments)
 	racingLineSpeeds = find_curve_speeds(racingLinePoints, racingLineSegments)
@@ -617,12 +657,14 @@ func find_curve_speeds(points,segments):
 	for i in range(points.size()):
 		speeds.append(-1)
 	for segment in segments:
+		var middle_point = floor((segment.start+segment.end)/2)
 		var p1 = points[segment.start]
-		var p2 = points[floor((segment.start+segment.end)/2)]
+		var p2 = points[middle_point]
 		var p3 = points[segment.end]
 		var r = calculate_circle_radius(p1,p2,p3)
 		var segment_speed = sqrt(frictionCoefficient * gravity * r)
-		for i in range(segment.start+1,segment.end):
+		
+		for i in range(middle_point-1,middle_point+1):
 			speeds[i] = segment_speed
 		pass
 	return speeds
@@ -706,12 +748,12 @@ func setSolveSpeed(speed):
 var redraw_track = true
 func first_draw():
 	redraw_track = false
-	for i in range(outerPoints.size()):
-		if(i < outerPoints.size()-1):
-			draw_line(outerPoints[i], outerPoints[i+1],  track_border_color, track_border_width)
-	for i in range(innerPoints.size()):
-		if(i < innerPoints.size()-1):
-			draw_line(innerPoints[i], innerPoints[i+1],  track_border_color, track_border_width)
+#	for i in range(outerPoints.size()):
+#		if(i < outerPoints.size()-1):
+#			draw_line(outerPoints[i], outerPoints[i+1],  track_border_color, track_border_width)
+#	for i in range(innerPoints.size()):
+#		if(i < innerPoints.size()-1):
+#			draw_line(innerPoints[i], innerPoints[i+1],  track_border_color, track_border_width)
 	draw_line(innerPoints[0], outerPoints[0],  Color.black, 2)
 	
 	
@@ -720,12 +762,12 @@ func first_draw():
 #			draw_circle(centerPoints[i],racing_line_width*0.8,track_border_color)
 	#		draw_string(default_font, centerPoints[i], str(i))
 		for i in range(centerSegments.size()):
-			draw_string(default_font, centerPoints[centerSegments[i].start], "s-"+str(i)+("/ max_speed: "+ str(centerSpeeds[centerSegments[i].start+1])+"m/s") if completed else "")
+#			draw_string(default_font, centerPoints[centerSegments[i].start], "s-"+str(i)+("/ max_speed: "+ str(centerSpeeds[centerSegments[i].start+1])+"m/s") if completed else "")
 			draw_circle(centerPoints[centerSegments[i].start], racing_line_width, Color.green)
 			draw_string(default_font, centerPoints[centerSegments[i].end], "e-"+str(i))
 			draw_circle(centerPoints[centerSegments[i].end], racing_line_width, Color.red)
 		for i in range(racingLineSegments.size()):
-			draw_string(default_font, racingLinePoints[racingLineSegments[i].start], "s-"+(str(i)+"/ max_speed: "+ str(racingLineSpeeds[racingLineSegments[i].start+1])+"m/s")if completed else "")
+#			draw_string(default_font, racingLinePoints[racingLineSegments[i].start], "s-"+(str(i)+"/ max_speed: "+ str(racingLineSpeeds[racingLineSegments[i].start+1])+"m/s")if completed else "")
 			draw_circle(racingLinePoints[racingLineSegments[i].start], racing_line_width, Color.aquamarine)
 			draw_string(default_font, racingLinePoints[racingLineSegments[i].end], "e-"+str(i))
 			draw_circle(racingLinePoints[racingLineSegments[i].end], racing_line_width, Color.coral)
@@ -764,7 +806,7 @@ func _draw():
 				pass
 	if connected_dots:
 		draw_track_line(racingLinePoints, racingLineSpeeds,racing_line_color, racing_line_width)
-		draw_track_line(centerPoints,centerSpeeds, track_border_color, racing_line_width)
+#		draw_track_line(centerPoints,centerSpeeds, track_border_color, racing_line_width)
 		pass
 	if completed:
 		draw_race()

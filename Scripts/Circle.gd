@@ -3,9 +3,9 @@ extends Node2D
 class_name Circle
 
 export var m_position: Vector2
-var growth_factor = 1
+var growth_factor = 0.1
 var hit_threshold = 1
-var complete_threshold = 1.5
+var complete_threshold = 1
 export var radius = 10
 export var solve_speed = 1
 
@@ -83,7 +83,7 @@ func move_circle():
 			moving_dir -= (exit_clipping.point - m_position)
 		moving_dir -= (apex_opposite - m_position)
 
-	m_position += moving_dir.normalized()
+	m_position += moving_dir.normalized()*growth_factor
 
 
 ## Verifies if the circle hit the lines at the clipping points
@@ -193,10 +193,23 @@ func update_apex_clipping():
 		if distance < min_distance:
 			apex_candidte_index = i
 			min_distance = distance
-	
+
 	apex_clipping.distance = inner_segment[apex_candidte_index].distance_to(m_position)
 	apex_clipping.point = inner_segment[apex_candidte_index]
 	apex_clipping.index = apex_candidte_index
+#	for i in range(inner_segment.size()-1):
+#		var A = inner_segment[i]
+#		var B = inner_segment[i+1]
+#		var C = m_position
+#		var point = closest_point_on_line_segment(A,B,C)
+#		var cur_distance = m_position.distance_to(point)
+#		if cur_distance > apex_clipping.distance:
+#			apex_clipping.distance = cur_distance
+#			apex_clipping.point = point
+#			apex_clipping.index = i
+#	if second_pass == 0:
+#		middle_point_index = apex_clipping.index
+#	apex_opposite = outer_segment[middle_point_index]
 
 
 func closest_point_on_line_segment(A,B,C):
@@ -241,8 +254,6 @@ func start_second_pass(point, full = false):
 	second_pass_goal = point
 	for i in range(middle_point_index*0.9):
 		outer_segment[i] = second_pass_goal
-#	outer_segment = outer_segment.slice(middle_point_index*0.9,outer_segment.size())
-#	outer_segment.push_front(second_pass_goal)
 	radius = 0
 	cur_itt = 0
 	m_position = inner_segment[-1]
@@ -256,10 +267,13 @@ func _draw():
 #			draw_circle(second_pass_goal, 4, Color.red)
 #		for i in range(1,inner_segment.size()):
 #			draw_line(inner_segment[i-1],inner_segment[i],complete_color,1)
+		for i in range(1,inner_segment.size()):
+			draw_line(inner_segment[i-1],inner_segment[i],Color.green,2)
 		for i in range(1,middle_point_index):
 			draw_line(outer_segment[i-1],outer_segment[i],Color.red,2)
 		for i in range(middle_point_index+1, outer_segment.size()):
 			draw_line(outer_segment[i-1],outer_segment[i],Color.blue,2)
+		
 #		draw_string(default_font, apex_clipping.point, str(cur_itt))
 #		draw_circle(apex_clipping.point,3,Color.red)
 #		draw_circle(apex_opposite,2,Color.blue)

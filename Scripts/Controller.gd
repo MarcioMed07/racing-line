@@ -37,7 +37,7 @@ func changePanel(state):
 		cur_track.show_center_points = true
 	elif state == 2:
 		cur_track.show_curve_definitions = false
-		cur_track.connect_dots = false
+		cur_track.connect_dots = true
 		cur_track.show_center_points = false
 	control.changePanelState(state)
 
@@ -63,7 +63,6 @@ func ittStart():
 	
 func fullStart():
 	cur_track.start(true)
-	changePanel(1)
 
 func recalculateCurves():
 	cur_track.arrange()
